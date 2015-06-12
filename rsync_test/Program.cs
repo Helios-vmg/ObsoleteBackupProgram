@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
+using Ionic.Zip;
 using Ionic.Zlib;
 
 namespace rsync_test
@@ -142,61 +143,6 @@ namespace rsync_test
             return ret;
         }
     }
-
-#if false
-    public class MovingWindowStreamReader : StreamBlockReader
-    {
-        private byte[] _currentBuffer1,
-            _currentBuffer2;
-        private int _bufferOffset;
-
-        public MovingWindowStreamReader(Stream stream, int blockSize)
-            : base(stream, blockSize)
-        {
-        }
-
-        protected override void AsyncCallback(IAsyncResult ar)
-        {
-            lock (this)
-            {
-                _currentBuffer1 = _currentBuffer2;
-                _currentBuffer2 = NextBuffer;
-                NextBuffer = new byte[BlockSize];
-                if (_currentBuffer1 == null)
-                    ReadMore();
-            }
-        }
-
-        public bool ReadAndShift(byte[] dst)
-        {
-            Debug.Assert(dst.Length == BlockSize);
-            for (int i = 0; i < 3; i++)
-            {
-                IAsyncResult lr;
-                lock (this)
-                {
-                    lr = LastRead;
-                    if (_currentBuffer1 != null)
-                    {
-                        Array.Copy(_currentBuffer1, _bufferOffset, dst, 0, BlockSize - _bufferOffset);
-                        if (_bufferOffset > 0)
-                            Array.Copy(_currentBuffer2, 0, dst, BlockSize - _bufferOffset, _bufferOffset);
-                        if (++_bufferOffset == BlockSize)
-                        {
-                            _currentBuffer1 = null;
-                            _bufferOffset = 0;
-                            ReadMore();
-                        }
-                    }
-                    if (EndOfFile)
-                        return false;
-                }
-                InputStream.EndRead(lr);
-            }
-            throw new Exception("The object is in an inconsistent state.");
-        }
-    }
-#endif
 
     public static class EasySorter
     {
@@ -375,112 +321,180 @@ namespace rsync_test
             return -1;
         }
 
-        private enum ComparisonState
+        private class FileComparer : IDisposable
         {
-            Undefined,
-            Unmatched,
-            Matched,
+            private Tuple<List<uint>, List<byte[]>, List<long>> _structure;
+            private readonly List<Command> _result = new List<Command>();
+            private readonly MD5 _md5 = MD5.Create();
+            private long _offset = 0;
+            private FileStream _file;
+            private ByteByByteStreamReader _stream;
+            private byte[] _circularBuffer = null;
+            private int _circularBufferHead = 0;
+            private int _circularBufferLength = 0;
+            private uint _currentChecksum = 0;
+            private int _currentState = 0;
+            private const int InitialState = 0;
+            private const int FirstNotFoundState = 1;
+            private const int FirstFoundState = 2;
+            private const int NthNotFoundState = 3;
+            private const int NthFoundState = 4;
+            private const int FinalState = 5;
+            private long _oldOffset = -1;
+            private bool _quit = false;
+
+            private Action[] _states;
+
+            public FileComparer(string oldFile, string newFile)
+            {
+                _structure = DigestOldFile(oldFile);
+                _file = new FileStream(newFile, FileMode.Open, FileAccess.Read, FileShare.None);
+                _stream = new ByteByByteStreamReader(_file, BlockSize);
+
+                _states = new Action[]
+                {
+                    ProcessState0,
+                    ProcessState1,
+                    ProcessState2,
+                    ProcessState3,
+                    ProcessState4,
+                    ProcessState5,
+                };
+            }
+
+            public List<Command> Process()
+            {
+                while (!_quit)
+                {
+                    if (_currentState < InitialState || _currentState > FinalState)
+                        throw new BadStateException();
+                    _states[_currentState]();
+                }
+                return _result;
+            }
+
+            private void DoSearch(int foundState, int notFoundState)
+            {
+                _oldOffset = -1;
+                var index = FindInStructure(_structure, _currentChecksum);
+                if (index >= 0)
+                {
+                    _md5.Initialize();
+                    _md5.TransformBlock(_circularBuffer, _circularBufferHead,
+                        _circularBuffer.Length - _circularBufferHead, _circularBuffer, _circularBufferHead);
+                    _md5.TransformFinalBlock(_circularBuffer, 0, _circularBufferHead);
+                    if (_structure.Item2[index] == _md5.Hash)
+                        _oldOffset = _structure.Item3[index];
+                    else
+                        _oldOffset = FindOffsetInStructure(_structure, _currentChecksum, _md5.Hash);
+                    if (_oldOffset >= 0)
+                    {
+                        _currentState = foundState;
+                        return;
+                    }
+                }
+                _currentState = notFoundState;
+            }
+
+            private void ProcessState0()
+            {
+                _circularBuffer = _stream.WholeBlock();
+                if (_circularBuffer == null)
+                {
+                    _currentState = FinalState;
+                    return;
+                }
+                _circularBufferHead = 0;
+                _circularBufferLength = _circularBuffer.Length;
+                _currentChecksum = RollingChecksum(_circularBuffer);
+                DoSearch(FirstFoundState, FirstNotFoundState);
+            }
+
+            private void ProcessState1()
+            {
+                var command = new Command
+                {
+                    CommandType = Command.Type.CopyNew,
+                    Offset = _offset,
+                    Length = 0,
+                };
+                _result.Add(command);
+                _currentState = NthNotFoundState;
+            }
+
+            private void ProcessState2()
+            {
+                var command = new Command
+                {
+                    CommandType = Command.Type.CopyOld,
+                    Offset = _oldOffset,
+                    Length = 0,
+                };
+                _result.Add(command);
+                _currentState = NthFoundState;
+            }
+
+            private void ProcessState3()
+            {
+                _offset++;
+                _result[_result.Count - 1].Length++;
+
+                _currentChecksum = RollingChecksumRemove(_currentChecksum, _circularBuffer[_circularBufferHead], (uint)_circularBufferLength);
+                var more = _stream.NextByte(out _circularBuffer[_circularBufferHead]);
+                _circularBufferHead = (_circularBufferHead + 1) % _circularBuffer.Length;
+                if (!more)
+                {
+                    if (--_circularBufferLength == 0)
+                    {
+                        _currentState = FinalState;
+                        return;
+                    }
+                }
+                else
+                    _currentChecksum = RollingChecksumAdd(_currentChecksum,
+                        _circularBuffer[(_circularBufferHead + _circularBufferLength - 1) % _circularBuffer.Length], (uint)_circularBufferLength);
+                DoSearch(FirstFoundState, NthNotFoundState);
+            }
+
+            private void ProcessState4()
+            {
+                _offset += BlockSize;
+                _result[_result.Count - 1].Length += _circularBufferLength;
+                _circularBuffer = _stream.WholeBlock();
+                if (_circularBuffer == null)
+                {
+                    _currentState = FinalState;
+                    return;
+                }
+                _circularBufferHead = 0;
+                _circularBufferLength = _circularBuffer.Length;
+                _currentChecksum = RollingChecksum(_circularBuffer);
+                DoSearch(NthFoundState, FirstNotFoundState);
+            }
+
+            private void ProcessState5()
+            {
+                _quit = true;
+            }
+
+            public void Dispose()
+            {
+                _stream.Dispose();
+                _file.Dispose();
+            }
         }
 
         public static List<Command> CompareFiles(string oldFile, string newFile)
         {
             try
             {
-                var structure = DigestOldFile(oldFile);
-                var ret = new List<Command>();
-                var md5 = MD5.Create();
-                long offset = 0;
-                using (var file = new FileStream(newFile, FileMode.Open, FileAccess.Read, FileShare.None))
-                using (var stream = new ByteByByteStreamReader(file, BlockSize))
+                using (var comparer = new FileComparer(oldFile, newFile))
                 {
-                    byte[] circularBuffer = null;
-                    int circularBufferHead = 0;
-                    int circularBufferLength = 0;
-                    uint currentChecksum = 0;
-                    var state = ComparisonState.Undefined;
-                    var found = false;
-                    long oldOffset = -1;
-                    while (true)
-                    {
-                        if (oldOffset >= 0 || state == ComparisonState.Undefined)
-                        {
-                            var add = false;
-                            if (ret.Count > 0)
-                            {
-                                var last = ret[ret.Count - 1];
-                                if (last.CommandType == Command.Type.CopyNew)
-                                {
-                                    last.Length = offset - last.Offset;
-                                    add = true;
-                                }
-                                else
-                                {
-                                    last.Length += circularBufferLength;
-                                    add = true;
-                                }
-                            }
-                            if (state == ComparisonState.Matched)
-                            {
-                                if (ret.Count > 0 && ret[ret.Count - 1].CommandType != Command.Type.CopyOld)
-                                    ret.Add(new Command
-                                    {
-                                        CommandType = Command.Type.CopyOld,
-                                        Offset = oldOffset,
-                                        Length = circularBufferLength,
-                                    });
-                                add = true;
-                            }
-                            if (add)
-                                offset += circularBufferLength;
-                            circularBuffer = stream.WholeBlock();
-                            if (circularBuffer == null)
-                                return ret;
-                            circularBufferHead = 0;
-                            circularBufferLength = circularBuffer.Length;
-                            currentChecksum = RollingChecksum(circularBuffer);
-                        }
-                        else
-                        {
-                            if (ret.Count <= 0 || ret[ret.Count - 1].CommandType != Command.Type.CopyNew)
-                                ret.Add(new Command
-                                {
-                                    CommandType = Command.Type.CopyNew,
-                                    Offset = offset,
-                                    Length = 0,
-                                });
-
-                            currentChecksum = RollingChecksumRemove(currentChecksum, circularBuffer[circularBufferHead], (uint)circularBufferLength);
-                            var more = stream.NextByte(out circularBuffer[circularBufferHead]);
-                            circularBufferHead = (circularBufferHead + 1) % circularBuffer.Length;
-                            offset++;
-                            if (!more)
-                            {
-                                if (--circularBufferLength == 0)
-                                {
-                                    ret[ret.Count - 1].Length = offset - ret[ret.Count - 1].Offset;
-                                    return ret;
-                                }
-                            }
-                            else
-                                currentChecksum = RollingChecksumAdd(currentChecksum,
-                                    circularBuffer[(circularBufferHead + circularBufferLength - 1) % circularBuffer.Length], (uint)circularBufferLength);
-                        }
-                        oldOffset = -1;
-                        var index = FindInStructure(structure, currentChecksum);
-                        if (index >= 0)
-                        {
-                            md5.Initialize();
-                            md5.TransformBlock(circularBuffer, circularBufferHead,
-                                circularBuffer.Length - circularBufferHead, circularBuffer, circularBufferHead);
-                            md5.TransformFinalBlock(circularBuffer, 0, circularBufferHead);
-                            var hash = md5.Hash;
-                            oldOffset = FindOffsetInStructure(structure, currentChecksum, hash, index, index + 1);
-                            if (oldOffset >= 0)
-                                state = ComparisonState.Matched;
-                        }
-                        else
-                            state = ComparisonState.Unmatched;
-                    }
+                    var ret = comparer.Process();
+                    var sum = ret.Sum(x => x.Length);
+                    var oldLength = new FileInfo(oldFile).Length;
+                    var newLength = new FileInfo(newFile).Length;
+                    return ret;
                 }
             }
             catch
@@ -489,60 +503,49 @@ namespace rsync_test
             }
         }
 
+        public static void TransformFile(string oldPath, string newPath, List<Command> commands, string resultPath)
+        {
+            var buffer = new byte[4096];
+            using (var oldFile = new FileStream(oldPath, FileMode.Open, FileAccess.Read, FileShare.Read))
+            using (var newFile = new FileStream(newPath, FileMode.Open, FileAccess.Read, FileShare.Read))
+            using (var resultFile = new FileStream(resultPath, FileMode.Create, FileAccess.Write, FileShare.None))
+            {
+                foreach (var command in commands)
+                {
+                    FileStream srcStream;
+                    switch (command.CommandType)
+                    {
+                        case Command.Type.CopyOld:
+                            srcStream = oldFile;
+                            break;
+                        case Command.Type.CopyNew:
+                            srcStream = newFile;
+                            break;
+                        default:
+                            throw new ArgumentOutOfRangeException();
+                    }
+                    srcStream.Seek(command.Offset, SeekOrigin.Begin);
+
+                    for (var bytesToCopy = command.Length; bytesToCopy > 0; bytesToCopy -= 4096)
+                    {
+                        var n = (int)Math.Min(bytesToCopy, 4096);
+                        srcStream.Read(buffer, 0, n);
+                        resultFile.Write(buffer, 0, n);
+                    }
+                }
+            }
+        }
     }
 
     class Program
     {
         static void Main(string[] args)
         {
-#if false
-            {
-                var md5 = MD5.Create();
-                var rng = new Random();
-                const int length = 1 << 6;
-                var buffer = new byte[length];
-                rng.NextBytes(buffer);
-                md5.Initialize();
-                md5.TransformBlock(buffer, 0, length / 2, buffer, 0);
-                md5.TransformFinalBlock(buffer, length / 2, length / 2);
-                var hash = md5.Hash;
-                md5.Initialize();
-                md5.TransformBlock(buffer, 0, 0, buffer, 0);
-                md5.TransformFinalBlock(buffer, 0, length);
-                hash = md5.Hash;
-            }
-#endif
-            var result = Rsync.CompareFiles(@"g:\Backup\000\0", @"g:\Backup\000\1");
-#if false
-            var rng = new Random();
-            const int length = 1 << 6;
-            var buffer = new byte[length * 10];
-            rng.NextBytes(buffer);
-            uint last = 0;
-            int lastLength = 0;
-            for (var i = 0; i < buffer.Length; i++)
-            {
-                var exiting = length > buffer.Length - i;
-                var l = !exiting ? length : buffer.Length - i;
-                var a = Rsync.RollingChecksum(buffer, i, l);
-                uint b;
-                if (i == 0)
-                    b = a;
-                else
-                {
-                    b = Rsync.RollingChecksumRemove(last, buffer[i - 1], (uint)lastLength);
-                    if (!exiting)
-                        b = Rsync.RollingChecksumAdd(b, buffer[i + l - 1], (uint)lastLength);
-                }
-                if (a != b)
-                {
-                    Console.WriteLine("Problem at offset " + i);
-                    return;
-                }
-                last = b;
-                lastLength = l;
-            }
-#endif
+            const string oldPath = @"g:\Backup\000\0";
+            const string newPath = @"g:\Backup\000\1";
+            const string resultPath = @"g:\Backup\000\2";
+            var commands = Rsync.CompareFiles(oldPath, newPath);
+            Rsync.TransformFile(oldPath, newPath, commands, resultPath);
         }
     }
 }
