@@ -150,8 +150,14 @@ namespace rsync_test
         {
             var n = Math.Min(a.Length, b.Length);
             for (var i = 0; i < n; i++)
-                if (a[i] >= b[i])
+            {
+                var A = a[i];
+                var B = b[i];
+                if (A > B)
                     return false;
+                if (A < B)
+                    return true;
+            }
             return a.Length < b.Length;
         }
 
@@ -335,11 +341,9 @@ namespace rsync_test
             private uint _currentChecksum = 0;
             private int _currentState = 0;
             private const int InitialState = 0;
-            private const int FirstNotFoundState = 1;
-            private const int FirstFoundState = 2;
-            private const int NthNotFoundState = 3;
-            private const int NthFoundState = 4;
-            private const int FinalState = 5;
+            private const int NotFoundState = 1;
+            private const int FoundState = 2;
+            private const int FinalState = 3;
             private long _oldOffset = -1;
             private bool _quit = false;
 
@@ -357,8 +361,6 @@ namespace rsync_test
                     ProcessState1,
                     ProcessState2,
                     ProcessState3,
-                    ProcessState4,
-                    ProcessState5,
                 };
             }
 
@@ -373,7 +375,7 @@ namespace rsync_test
                 return _result;
             }
 
-            private void DoSearch(int foundState, int notFoundState)
+            private bool DoSearch()
             {
                 _oldOffset = -1;
                 var index = FindInStructure(_structure, _currentChecksum);
@@ -388,12 +390,9 @@ namespace rsync_test
                     else
                         _oldOffset = FindOffsetInStructure(_structure, _currentChecksum, _md5.Hash);
                     if (_oldOffset >= 0)
-                    {
-                        _currentState = foundState;
-                        return;
-                    }
+                        return true;
                 }
-                _currentState = notFoundState;
+                return false;
             }
 
             private void ProcessState0()
@@ -407,7 +406,10 @@ namespace rsync_test
                 _circularBufferHead = 0;
                 _circularBufferLength = _circularBuffer.Length;
                 _currentChecksum = RollingChecksum(_circularBuffer);
-                DoSearch(FirstFoundState, FirstNotFoundState);
+                if (!DoSearch())
+                    _currentState = NotFoundState;
+                else
+                    _currentState = FoundState;
             }
 
             private void ProcessState1()
@@ -419,63 +421,69 @@ namespace rsync_test
                     Length = 0,
                 };
                 _result.Add(command);
-                _currentState = NthNotFoundState;
+
+                do
+                {
+                    _offset++;
+                    _result[_result.Count - 1].Length++;
+
+                    _currentChecksum = RollingChecksumRemove(_currentChecksum, _circularBuffer[_circularBufferHead], (uint)_circularBufferLength);
+                    var more = _stream.NextByte(out _circularBuffer[_circularBufferHead]);
+                    _circularBufferHead = (_circularBufferHead + 1) % _circularBuffer.Length;
+                    if (!more)
+                    {
+                        if (--_circularBufferLength == 0)
+                        {
+                            _currentState = FinalState;
+                            return;
+                        }
+                    }
+                    else
+                        _currentChecksum = RollingChecksumAdd(_currentChecksum,
+                            _circularBuffer[(_circularBufferHead + _circularBufferLength - 1) % _circularBuffer.Length], (uint)_circularBufferLength);
+                } while (!DoSearch());
+                _currentState = FoundState;
             }
 
             private void ProcessState2()
             {
-                var command = new Command
+                while (true)
                 {
-                    CommandType = Command.Type.CopyOld,
-                    Offset = _oldOffset,
-                    Length = 0,
-                };
-                _result.Add(command);
-                _currentState = NthFoundState;
+                    var command = new Command
+                    {
+                        CommandType = Command.Type.CopyOld,
+                        Offset = _oldOffset,
+                        Length = 0,
+                    };
+                    _result.Add(command);
+
+                    Command last;
+                    while (true)
+                    {
+                        _offset += BlockSize;
+                        last = _result[_result.Count - 1];
+                        last.Length += _circularBufferLength;
+                        _circularBuffer = _stream.WholeBlock();
+                        if (_circularBuffer == null)
+                        {
+                            _currentState = FinalState;
+                            return;
+                        }
+                        _circularBufferHead = 0;
+                        _circularBufferLength = _circularBuffer.Length;
+                        _currentChecksum = RollingChecksum(_circularBuffer);
+                        if (!DoSearch())
+                        {
+                            _currentState = NotFoundState;
+                            return;
+                        }
+                        if (_oldOffset != last.Offset + last.Length)
+                            break;
+                    }
+                }
             }
 
             private void ProcessState3()
-            {
-                _offset++;
-                _result[_result.Count - 1].Length++;
-
-                _currentChecksum = RollingChecksumRemove(_currentChecksum, _circularBuffer[_circularBufferHead], (uint)_circularBufferLength);
-                var more = _stream.NextByte(out _circularBuffer[_circularBufferHead]);
-                _circularBufferHead = (_circularBufferHead + 1) % _circularBuffer.Length;
-                if (!more)
-                {
-                    if (--_circularBufferLength == 0)
-                    {
-                        _currentState = FinalState;
-                        return;
-                    }
-                }
-                else
-                    _currentChecksum = RollingChecksumAdd(_currentChecksum,
-                        _circularBuffer[(_circularBufferHead + _circularBufferLength - 1) % _circularBuffer.Length], (uint)_circularBufferLength);
-                DoSearch(FirstFoundState, NthNotFoundState);
-            }
-
-            private void ProcessState4()
-            {
-                _offset += BlockSize;
-                var last = _result[_result.Count - 1];
-                last.Length += _circularBufferLength;
-                _circularBuffer = _stream.WholeBlock();
-                if (_circularBuffer == null)
-                {
-                    _currentState = FinalState;
-                    return;
-                }
-                _circularBufferHead = 0;
-                _circularBufferLength = _circularBuffer.Length;
-                _currentChecksum = RollingChecksum(_circularBuffer);
-                DoSearch(NthFoundState, FirstNotFoundState);
-                if (_oldOffset >= 0 && _oldOffset != last.Offset + last.Length)
-                    _currentState = FirstFoundState;
-            }
-
-            private void ProcessState5()
             {
                 _quit = true;
             }
@@ -544,9 +552,31 @@ namespace rsync_test
     {
         static void Main(string[] args)
         {
-            const string oldPath = @"g:\Backup\000\0";
-            const string newPath = @"g:\Backup\000\1";
-            const string resultPath = @"g:\Backup\000\2";
+            const string oldPath = @"g:\Backup\000\version0.zip";
+            const string newPath = @"g:\Backup\000\version1.zip";
+            const string resultPath = @"g:\Backup\000\version2.zip";
+            var testCommands = new List<Rsync.Command>
+            {
+                new Rsync.Command
+                {
+                    CommandType = Rsync.Command.Type.CopyOld,
+                    Offset = 0,
+                    Length = 1033,
+                },
+                new Rsync.Command
+                {
+                    CommandType = Rsync.Command.Type.CopyOld,
+                    Offset = 10330,
+                    Length = 3323,
+                },
+                new Rsync.Command
+                {
+                    CommandType = Rsync.Command.Type.CopyOld,
+                    Offset = 10330 / 2,
+                    Length = 4021,
+                },
+            };
+            Rsync.TransformFile(oldPath, oldPath, testCommands, newPath);
             var commands = Rsync.CompareFiles(oldPath, newPath);
             Rsync.TransformFile(oldPath, newPath, commands, resultPath);
         }
