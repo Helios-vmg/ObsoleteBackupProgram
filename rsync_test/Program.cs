@@ -459,7 +459,8 @@ namespace rsync_test
             private void ProcessState4()
             {
                 _offset += BlockSize;
-                _result[_result.Count - 1].Length += _circularBufferLength;
+                var last = _result[_result.Count - 1];
+                last.Length += _circularBufferLength;
                 _circularBuffer = _stream.WholeBlock();
                 if (_circularBuffer == null)
                 {
@@ -470,6 +471,8 @@ namespace rsync_test
                 _circularBufferLength = _circularBuffer.Length;
                 _currentChecksum = RollingChecksum(_circularBuffer);
                 DoSearch(NthFoundState, FirstNotFoundState);
+                if (_oldOffset >= 0 && _oldOffset != last.Offset + last.Length)
+                    _currentState = FirstFoundState;
             }
 
             private void ProcessState5()
