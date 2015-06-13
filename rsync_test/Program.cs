@@ -22,13 +22,6 @@ namespace rsync_test
 
         public bool EndOfFile { get; protected set; }
 
-        public enum OperationMode
-        {
-            BlockByBlock,
-            MovingWindow,
-        }
-        public OperationMode Mode { get; private set; }
-
         public void Dispose()
         {
             InputStream.Dispose();
@@ -166,6 +159,17 @@ namespace rsync_test
             return b.LessThan(a);
         }
 
+        public static bool Equal(this byte[] a, byte[] b)
+        {
+            if (a.Length != b.Length)
+                return false;
+            var n = a.Length;
+            for (var i = 0; i < n; i++)
+                if (a[i] != b[i])
+                    return false;
+            return true;
+        }
+
         public static Tuple<List<uint>, List<byte[]>, List<long>> Sort(this Tuple<List<uint>, List<byte[]>, List<long>> s)
         {
             var list = new List<int>(s.Item1.Count);
@@ -288,16 +292,16 @@ namespace rsync_test
                 Length;
         }
 
-        private static long FindOffsetInStructure(Tuple<List<uint>, List<byte[]>, List<long>> s, uint x, byte[] buf = null,
+        private static long FindOffsetInStructure(Tuple<List<uint>, List<byte[]>, List<long>> s, uint x, byte[] buf, long offset,
             int begin = -1, int end = -1)
         {
-            var index = FindInStructure(s, x, buf, begin, end);
+            var index = FindInStructure(s, x, buf, offset, begin, end);
             if (index < 0)
                 return -1;
             return s.Item3[index];
         }
 
-        private static int FindInStructure(Tuple<List<uint>, List<byte[]>, List<long>> s, uint x, byte[] buf = null, int begin = -1, int end = -1)
+        private static int FindInStructure(Tuple<List<uint>, List<byte[]>, List<long>> s, uint x, byte[] buf, long offset, int begin = -1, int end = -1)
         {
             if (begin < 0)
                 begin = 0;
@@ -315,13 +319,31 @@ namespace rsync_test
                     return pivot;
                 else
                 {
-                    var buf2 = s.Item2[pivot];
-                    if (buf.LessThan(buf2))
-                        end = pivot;
-                    else if (buf2.LessThan(buf))
-                        begin = pivot + 1;
-                    else
-                        return pivot;
+                    while (begin < end)
+                    {
+                        pivot = begin + (end - begin) / 2;
+                        var buf2 = s.Item2[pivot];
+                        if (buf.LessThan(buf2))
+                            end = pivot;
+                        else if (buf.GreaterThan(buf2))
+                            begin = pivot + 1;
+                        else if (offset < 0)
+                            return pivot;
+                        else
+                        {
+                            while (begin < end)
+                            {
+                                pivot = begin + (end - begin) / 2;
+                                var offset2 = s.Item3[pivot];
+                                if (offset < offset2)
+                                    end = pivot;
+                                else if (offset > offset2)
+                                    begin = pivot + 1;
+                                else
+                                    return pivot;
+                            }
+                        }
+                    }
                 }
             }
             return -1;
@@ -375,24 +397,20 @@ namespace rsync_test
                 return _result;
             }
 
-            private bool DoSearch()
+            private bool DoSearch(long targetOffset = -1)
             {
                 _oldOffset = -1;
-                var index = FindInStructure(_structure, _currentChecksum);
-                if (index >= 0)
-                {
-                    _md5.Initialize();
-                    _md5.TransformBlock(_circularBuffer, _circularBufferHead,
-                        _circularBuffer.Length - _circularBufferHead, _circularBuffer, _circularBufferHead);
-                    _md5.TransformFinalBlock(_circularBuffer, 0, _circularBufferHead);
-                    if (_structure.Item2[index] == _md5.Hash)
-                        _oldOffset = _structure.Item3[index];
-                    else
-                        _oldOffset = FindOffsetInStructure(_structure, _currentChecksum, _md5.Hash);
-                    if (_oldOffset >= 0)
-                        return true;
-                }
-                return false;
+                var index = FindInStructure(_structure, _currentChecksum, null, targetOffset);
+                if (index < 0)
+                    return false;
+
+                _md5.Initialize();
+                _md5.TransformBlock(_circularBuffer, _circularBufferHead,
+                    _circularBuffer.Length - _circularBufferHead, _circularBuffer, _circularBufferHead);
+                _md5.TransformFinalBlock(_circularBuffer, 0, _circularBufferHead);
+                _oldOffset = FindOffsetInStructure(_structure, _currentChecksum, _md5.Hash, targetOffset);
+
+                return _oldOffset >= 0;
             }
 
             private void ProcessState0()
@@ -555,28 +573,30 @@ namespace rsync_test
             const string oldPath = @"g:\Backup\000\version0.zip";
             const string newPath = @"g:\Backup\000\version1.zip";
             const string resultPath = @"g:\Backup\000\version2.zip";
+            /*
             var testCommands = new List<Rsync.Command>
             {
                 new Rsync.Command
                 {
                     CommandType = Rsync.Command.Type.CopyOld,
                     Offset = 0,
-                    Length = 1033,
+                    Length = 444182686,
                 },
                 new Rsync.Command
                 {
                     CommandType = Rsync.Command.Type.CopyOld,
-                    Offset = 10330,
-                    Length = 3323,
+                    Offset = 444182686/2,
+                    Length = 444182686/2,
                 },
                 new Rsync.Command
                 {
                     CommandType = Rsync.Command.Type.CopyOld,
-                    Offset = 10330 / 2,
-                    Length = 4021,
+                    Offset = 0,
+                    Length = 444182686/2,
                 },
             };
             Rsync.TransformFile(oldPath, oldPath, testCommands, newPath);
+             * */
             var commands = Rsync.CompareFiles(oldPath, newPath);
             Rsync.TransformFile(oldPath, newPath, commands, resultPath);
         }
