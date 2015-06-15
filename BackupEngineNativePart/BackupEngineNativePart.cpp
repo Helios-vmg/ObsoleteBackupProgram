@@ -1,9 +1,6 @@
 #include "stdafx.h"
 #include "MiscFunctions.h"
-
-#define EXPORT_THIS extern "C" _declspec(dllexport)
-
-typedef void (*callback)(const wchar_t *);
+#include "ExportedFunctions.h"
 
 static bool internal_exists(const wchar_t *path){
 	DWORD attr = GetFileAttributesW(path);
