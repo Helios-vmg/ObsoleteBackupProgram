@@ -1,10 +1,33 @@
 #pragma once
 
 #include "circular_buffer.h"
+#include "Threads.h"
 class ByteByByteReader;
 class RsyncableFile;
 struct rsync_command;
 struct rsync_table_item;
+
+class simple_buffer{
+	std::shared_ptr<byte_t> m_buffer;
+	size_t m_capacity;
+public:
+	size_t size;
+	simple_buffer(size_t capacity = 0){
+		this->realloc(capacity);
+	}
+	void realloc(size_t capacity = 0);
+	byte_t *data();
+	const byte_t *data() const;
+	operator bool(){
+		return (bool)this->m_buffer;
+	}
+	size_t capacity() const{
+		return this->m_capacity;
+	}
+	bool full() const{
+		return this->size == this->m_capacity;
+	}
+};
 
 class FileComparer{
 	enum class State{
@@ -22,10 +45,13 @@ class FileComparer{
 		old_offset;
 	CryptoPP::SHA1 new_sha1;
 	byte_t new_digest[20];
-	size_t new_buffer_size,
-		new_buffer_capacity;
-	std::unique_ptr<byte_t[]> new_buffer;
+	simple_buffer new_buffer;
 	std::vector<rsync_table_item> new_table;
+	HANDLE thread;
+	Mutex queue_mutex;
+	AutoResetEvent event;
+	std::deque<simple_buffer> processing_queue;
+	bool stop;
 
 	typedef void (FileComparer::*state_function)();
 	void state_Initial();
@@ -38,7 +64,13 @@ class FileComparer{
 	void add_block(circular_buffer &);
 	void add_block(const byte_t *, size_t);
 	void process_new_buffer(bool force = false);
+	void started();
 	void finished();
+	static DWORD WINAPI static_thread_func(void *_this){
+		((FileComparer *)_this)->thread_func();
+		return 0;
+	}
+	void thread_func();
 public:
 	FileComparer(const wchar_t *new_path, std::shared_ptr<RsyncableFile> old_file);
 	void process();

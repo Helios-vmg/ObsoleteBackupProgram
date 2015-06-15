@@ -17,6 +17,8 @@
 #include <vector>
 #include <cstdint>
 #include <sstream>
+#include <deque>
+#include <utility>
 
 #include "SimpleTypes.h"
 #include "GlobalConstants.h"
