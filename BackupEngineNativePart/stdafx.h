@@ -1,10 +1,25 @@
-// stdafx.h : include file for standard system include files,
-// or project specific include files that are used frequently, but
-// are changed infrequently
-//
-
 #pragma once
-
-//#define WIN32_LEAN_AND_MEAN             // Exclude rarely-used stuff from Windows headers
-// Windows Header Files:
 #include <windows.h>
+#ifdef min
+#undef min
+#endif
+#ifdef max
+#undef max
+#endif
+#include <iostream>
+#include <fstream>
+#include <iomanip>
+#include <algorithm>
+#include <memory>
+#include <string>
+#include <exception>
+#include <cryptlib/sha.h>
+#include <type_traits>
+#include <vector>
+#include <cstdint>
+#include <sstream>
+#include <deque>
+#include <utility>
+
+#include "SimpleTypes.h"
+#include "GlobalConstants.h"

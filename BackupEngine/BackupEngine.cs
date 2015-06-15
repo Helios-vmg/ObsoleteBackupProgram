@@ -28,8 +28,9 @@ namespace BackupEngine
         //filish file system objects.
         Full,
         //File will be backed up if changes were made to it, storing only the
-        //parts of the file that changed. Only for filish file system objects.
-        Differential,
+        //parts of the file that changed, using the rsync algorithm. Only for
+        //filish file system objects.
+        Rsync,
     }
 
     public class InvalidBackupMode : Exception

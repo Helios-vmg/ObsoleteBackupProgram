@@ -1,17 +1,9 @@
 #include "stdafx.h"
-#include <string>
-#include <vector>
+#include "MiscFunctions.h"
 
 #define EXPORT_THIS extern "C" _declspec(dllexport)
 
 typedef void (*callback)(const wchar_t *);
-
-std::wstring path_from_string(const wchar_t *path){
-	std::wstring ret = path;
-	if (ret.size() >= MAX_PATH - 5 && !(ret[0] == '\\' && ret[1] == '\\' && ret[2] == '?' && ret[3] == '\\'))
-		ret = L"\\\\?\\" + ret;
-	return ret;
-}
 
 static bool internal_exists(const wchar_t *path){
 	DWORD attr = GetFileAttributesW(path);
