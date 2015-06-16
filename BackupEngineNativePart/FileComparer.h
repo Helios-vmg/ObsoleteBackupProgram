@@ -27,6 +27,7 @@ public:
 	bool full() const{
 		return this->size == this->m_capacity;
 	}
+	void operator=(const circular_buffer &);
 };
 
 class FileComparer{
@@ -43,6 +44,7 @@ class FileComparer{
 	rolling_checksum_t checksum;
 	file_offset_t new_offset,
 		old_offset;
+	file_size_t new_block_size;
 	CryptoPP::SHA1 new_sha1;
 	byte_t new_digest[20];
 	simple_buffer new_buffer;
@@ -79,9 +81,15 @@ public:
 		this->result.reset();
 		return ret;
 	}
+	std::vector<rsync_table_item> get_new_table() const{
+		return this->new_table;
+	}
 	const byte *get_old_digest() const;
-	const byte *get_new_digest(){
+	const byte *get_new_digest() const{
 		return this->new_digest;
+	}
+	file_size_t get_new_block_size() const{
+		return this->new_block_size;
 	}
 };
 

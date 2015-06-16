@@ -19,6 +19,10 @@ public:
 		return this->m_size;
 	}
 	template <typename T>
+	void process_whole(T &f) const{
+		((circular_buffer *)this)->process_whole(f);
+	}
+	template <typename T>
 	void process_whole(T &f){
 		if (this->start + this->m_size <= this->m_capacity)
 			f(this->buffer + this->start, this->m_size);

@@ -20,6 +20,7 @@
 #include <sstream>
 #include <deque>
 #include <utility>
+#include <cassert>
 
 #include "SimpleTypes.h"
 #include "GlobalConstants.h"

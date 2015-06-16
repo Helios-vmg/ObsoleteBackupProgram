@@ -31,11 +31,11 @@ void StreamBlockReader::seek(file_offset_t offset){
 	this->cancel();
 	this->clear_buffers();
 	this->eof = false;
-	this->offset = offset;
 	LARGE_INTEGER li;
-	li.QuadPart = this->offset;
+	li.QuadPart = offset;
 	if (!SetFilePointerEx(this->file, li, nullptr, FILE_BEGIN))
 		throw Win32Error();
+	this->offset = offset;
 	this->read_more();
 }
 

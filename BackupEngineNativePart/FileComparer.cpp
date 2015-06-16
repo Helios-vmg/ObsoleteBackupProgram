@@ -8,11 +8,13 @@
 #include "binary_search.h"
 
 void simple_buffer::realloc(size_t capacity){
-	if (capacity)
-		this->m_buffer.reset(new byte_t[capacity], [](byte_t *p){ delete[] p; });
-	else
-		this->m_buffer.reset();
-	this->m_capacity = capacity;
+	if (capacity != this->m_capacity){
+		if (capacity)
+			this->m_buffer.reset(new byte_t[capacity], [](byte_t *p){ delete[] p; });
+		else
+			this->m_buffer.reset();
+		this->m_capacity = capacity;
+	}
 	this->size = 0;
 }
 
@@ -24,13 +26,23 @@ const byte_t *simple_buffer::data() const{
 	return this->m_buffer.get();
 }
 
+void simple_buffer::operator=(const circular_buffer &buffer){
+	this->realloc(buffer.size());
+	this->size = 0;
+	buffer.process_whole([this](const byte_t *buffer, size_t size){
+		memcpy(this->m_buffer.get() + this->size, buffer, size);
+		this->size += size;
+	});
+}
+
 FileComparer::FileComparer(const wchar_t *new_path, std::shared_ptr<RsyncableFile> old_file):
 		state(State::Initial),
 		old_file(old_file),
 		buffer(1){
 	this->reader.reset(new ByteByByteReader(new_path, old_file->get_block_size()));
 	auto file_size = this->reader->size();
-	this->new_buffer.realloc(RsyncableFile::scaler_function(file_size));
+	this->new_block_size = RsyncableFile::scaler_function(file_size);
+	this->new_buffer.realloc(this->new_block_size);
 	this->new_table.reserve(blocks_per_file(file_size, this->new_buffer.capacity()));
 	this->result.reset(new std::vector<rsync_command>);
 	this->thread = nullptr;
@@ -112,7 +124,6 @@ void FileComparer::state_NonMatching(){
 			this->buffer.push(byte);
 			auto n = this->buffer.size();
 			this->checksum = add_rsync_rolling_checksum(this->checksum, byte, n);
-			//this->checksum = add_rsync_rolling_checksum(this->checksum, this->buffer[n - 1], n);
 		}else if (!this->buffer.size()){
 			this->state = State::Final;
 			return;
@@ -220,6 +231,7 @@ void FileComparer::started(){
 }
 
 void FileComparer::thread_func(){
+	file_offset_t offset = 0;
 	while (true){
 		simple_buffer buffer;
 		while (true){
@@ -236,9 +248,6 @@ void FileComparer::thread_func(){
 		if (!buffer)
 			break;
 
-		file_offset_t offset = 0;
-		if (this->new_table.size())
-			offset = this->new_table.back().file_offset + buffer.size;
 		rsync_table_item item;
 		item.rolling_checksum = compute_rsync_rolling_checksum(buffer.data(), buffer.size);
 		CryptoPP::SHA1 sha1;
@@ -246,8 +255,10 @@ void FileComparer::thread_func(){
 		this->new_sha1.Update(buffer.data(), buffer.size);
 		item.file_offset = offset;
 		this->new_table.push_back(item);
+		offset += buffer.size;
 	}
 	this->new_sha1.Final(this->new_digest);
+	std::sort(this->new_table.begin(), this->new_table.end());
 }
 
 void FileComparer::finished(){

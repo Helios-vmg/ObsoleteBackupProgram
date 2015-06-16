@@ -25,3 +25,20 @@ public:
 	PrintableBuffer(const void *buffer, size_t size): buffer(buffer), size(size){}
 	friend std::ostream &operator<<(std::ostream &, const PrintableBuffer &);
 };
+
+// Given a range [first, last) and a predicate f such that for al
+// first <= x < y !f(x) and for all y <= z < last f(z), find_all() returns y,
+// or last if it does not exist.
+template<class It, class F>
+It find_all(It begin, It end, F &f){
+	auto diff = end - begin;
+	while (diff > 1){
+		auto pivot = begin + diff / 2;
+		if (!f(*pivot))
+			begin = pivot;
+		else
+			end = pivot;
+		diff = end - begin;
+	}
+	return end;
+}

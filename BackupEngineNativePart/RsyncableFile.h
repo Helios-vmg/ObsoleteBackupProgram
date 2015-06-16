@@ -1,12 +1,15 @@
 #pragma once
 #include "MiscTypes.h"
 
+class FileComparer;
+
 class RsyncableFile{
 	byte_t sha1[20];
 	std::vector<rsync_table_item> rsync_table;
-	file_offset_t block_size;
+	file_size_t block_size;
 public:
 	RsyncableFile(const std::wstring &path);
+	RsyncableFile(const FileComparer &);
 	void save(const char *path);
 	static file_size_t scaler_function(file_size_t x){
 		const size_t limit = 64 << 20;
@@ -15,7 +18,7 @@ public:
 			ret <<= 1;
 		return ret;
 	}
-	file_offset_t get_block_size() const{
+	file_size_t get_block_size() const{
 		return this->block_size;
 	}
 	void get_table(const rsync_table_item *&begin, const rsync_table_item *&end) const{

@@ -121,8 +121,15 @@ namespace test1
             }
         }
 
+        [DllImport("BackupEngineNativePart64.dll", CharSet = CharSet.Unicode,
+            CallingConvention = CallingConvention.Cdecl)]
+        public static extern void test_func();
+
         static void Main(string[] args)
         {
+#if true
+            test_func();
+#else
             var bu = new Backupper
             {
                 Destination = @"G:\Backup\000",
@@ -150,6 +157,7 @@ namespace test1
             {
                 writer.Write(Serializer.Serialize(fso));
             }
+#endif
         }
     }
 }

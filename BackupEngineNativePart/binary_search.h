@@ -43,9 +43,7 @@ Corollary: If no element x in [begin; end) exists such that f(x) == 0 then dst_b
 */
 template <typename Iterator, typename FunctorT>
 void triple_search(Iterator &dst_begin, Iterator &dst_end, Iterator begin, Iterator end, FunctorT &f){
-	Iterator &head = dst_begin,
-		in,
-		&tail = dst_end;
+	Iterator in;
 	dst_begin = nullptr;
 	dst_end = nullptr;
 	int f_begin, f_end;
@@ -60,11 +58,11 @@ void triple_search(Iterator &dst_begin, Iterator &dst_end, Iterator begin, Itera
 	}
 	int count = 0;
 	if (!f_begin){
-		head = begin;
+		dst_begin = begin;
 		count++;
 	}
 	if (!f_end){
-		tail = end;
+		dst_end = end;
 		count++;
 	}
 	if (count == 2)
@@ -94,26 +92,30 @@ void triple_search(Iterator &dst_begin, Iterator &dst_end, Iterator begin, Itera
 	auto low = begin,
 		high = end;
 
-	end = in;
-	while (begin < end - 1){
-		auto pivot = begin + (end - begin) / 2;
-		auto i = f(*pivot);
-		if (i < 0)
-			begin = pivot;
-		else
-			end = pivot;
+	if (!dst_begin){
+		end = in;
+		while (begin < end - 1){
+			auto pivot = begin + (end - begin) / 2;
+			auto i = f(*pivot);
+			if (i < 0)
+				begin = pivot;
+			else
+				end = pivot;
+		}
+		dst_begin = end;
 	}
-	head = end;
 
-	begin = in;
-	end = high;
-	while (begin < end - 1){
-		auto pivot = begin + (end - begin) / 2;
-		auto i = f(*pivot);
-		if (i <= 0)
-			begin = pivot;
-		else
-			end = pivot;
+	if (!dst_end){
+		begin = in;
+		end = high;
+		while (begin < end - 1){
+			auto pivot = begin + (end - begin) / 2;
+			auto i = f(*pivot);
+			if (i <= 0)
+				begin = pivot;
+			else
+				end = pivot;
+		}
+		dst_end = end;
 	}
-	tail = end;
 }

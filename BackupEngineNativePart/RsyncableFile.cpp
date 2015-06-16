@@ -5,6 +5,7 @@
 #include "MiscTypes.h"
 #include "RollingChecksum.h"
 #include "circular_buffer.h"
+#include "FileComparer.h"
 
 RsyncableFile::RsyncableFile(const std::wstring &path){
 	const auto file_size = get_file_size(path.c_str());
@@ -33,6 +34,12 @@ RsyncableFile::RsyncableFile(const std::wstring &path){
 	}
 	global_sha1.Final(this->sha1);
 	std::sort(this->rsync_table.begin(), this->rsync_table.end());
+}
+
+RsyncableFile::RsyncableFile(const FileComparer &comparer){
+	this->rsync_table = comparer.get_new_table();
+	memcpy(this->sha1, comparer.get_new_digest(), sizeof(this->sha1));
+	this->block_size = comparer.get_new_block_size();
 }
 
 void RsyncableFile::save(const char *path){
