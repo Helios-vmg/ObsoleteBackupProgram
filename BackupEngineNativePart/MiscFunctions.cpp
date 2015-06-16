@@ -49,12 +49,16 @@ std::string format_size(double size){
 		" YiB"
 	};
 	int unit = 0;
+	bool exact = true;
 	while (size >= 1024.0){
+		exact &= fmod(size, 1024.0) == 0;
 		size /= 1024.0;
 		unit++;
 	}
 	std::stringstream stream;
-	stream << std::setprecision(5) << size << units[unit];
+	if (!exact)
+		stream << std::fixed << std::setprecision(1);
+	stream << size << units[unit];
 	return stream.str();
 }
 

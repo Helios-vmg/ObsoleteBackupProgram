@@ -31,6 +31,10 @@ public:
 // or last if it does not exist.
 template<class It, class F>
 It find_all(It begin, It end, F &f){
+	if (begin >= end)
+		return end;
+	if (f(*begin))
+		return begin;
 	auto diff = end - begin;
 	while (diff > 1){
 		auto pivot = begin + diff / 2;
