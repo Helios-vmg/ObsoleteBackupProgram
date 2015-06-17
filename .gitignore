@@ -34,3 +34,4 @@ _ReSharper*/
 *.exp
 bin64/table.dat
 *.ipch
+bin64/*.bin

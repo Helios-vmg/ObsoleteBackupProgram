@@ -4,8 +4,12 @@
 #include "RsyncableFile.h"
 #include "ExportedFunctions.h"
 #include "MiscFunctions.h"
+#include "Rdiff.h"
 
 EXPORT_THIS void test_func(){
+	auto list = split_file(L"Ionic.Zip.xml");
+	return;
+
 	static const wchar_t *paths[] = {
 		L"version0.bin",
 		L"version1.bin",
@@ -25,7 +29,7 @@ EXPORT_THIS void test_func(){
 	std::shared_ptr<rsync::NormalFile> file1(new rsync::NormalFile(paths[1], 1));
 	std::shared_ptr<rsync::NormalFile> file2(new rsync::NormalFile(paths[2], 2));
 	std::shared_ptr<rsync::NormalFile> file3(new rsync::NormalFile(paths[3], 3));
-	std::shared_ptr<rsync::NormalFile> file4(new rsync::NormalFile(paths[3], 4));
+	std::shared_ptr<rsync::NormalFile> file4(new rsync::NormalFile(paths[4], 4));
 	auto results = cmp0.get_result();
 	std::shared_ptr<rsync::RsyncChainLink> link0(new rsync::RsyncChainLink(file0, file1, &(*results)[0], results->size()));
 	results = cmp1.get_result();

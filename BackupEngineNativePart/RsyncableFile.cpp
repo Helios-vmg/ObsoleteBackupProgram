@@ -34,12 +34,20 @@ RsyncableFile::RsyncableFile(const std::wstring &path){
 	}
 	global_sha1.Final(this->sha1);
 	std::sort(this->rsync_table.begin(), this->rsync_table.end());
+	this->init_bitmap();
 }
 
 RsyncableFile::RsyncableFile(const FileComparer &comparer){
 	this->rsync_table = comparer.get_new_table();
+	this->init_bitmap();
 	memcpy(this->sha1, comparer.get_new_digest(), sizeof(this->sha1));
 	this->block_size = comparer.get_new_block_size();
+}
+
+void RsyncableFile::init_bitmap(){
+	this->bitmap.resize(1 << 24, false);
+	for (auto &i : this->rsync_table)
+		this->bitmap[i.rolling_checksum & 0xFFFFFF] = true;
 }
 
 void RsyncableFile::save(const char *path){
@@ -49,4 +57,8 @@ void RsyncableFile::save(const char *path){
 	if (!file)
 		return;
 	file.write((const char *)&this->rsync_table[0], sizeof(rsync_table_item) * this->rsync_table.size());
+}
+
+bool RsyncableFile::does_not_contain(rolling_checksum_t x){
+	return !this->bitmap[x & 0xFFFFFF];
 }

@@ -150,6 +150,7 @@
     <ClInclude Include="GlobalConstants.h" />
     <ClInclude Include="MiscFunctions.h" />
     <ClInclude Include="MiscTypes.h" />
+    <ClInclude Include="Rdiff.h" />
     <ClInclude Include="RollingChecksum.h" />
     <ClInclude Include="Rsync.h" />
     <ClInclude Include="RsyncableFile.h" />
@@ -177,6 +178,7 @@
     </ClCompile>
     <ClCompile Include="FileComparer.cpp" />
     <ClCompile Include="MiscFunctions.cpp" />
+    <ClCompile Include="Rdiff.cpp" />
     <ClCompile Include="RollingChecksum.cpp" />
     <ClCompile Include="Rsync.cpp" />
     <ClCompile Include="RsyncableFile.cpp" />

@@ -6,7 +6,10 @@ class FileComparer;
 class RsyncableFile{
 	byte_t sha1[20];
 	std::vector<rsync_table_item> rsync_table;
+	std::vector<bool> bitmap;
 	file_size_t block_size;
+
+	void init_bitmap();
 public:
 	RsyncableFile(const std::wstring &path);
 	RsyncableFile(const FileComparer &);
@@ -33,6 +36,7 @@ public:
 	const byte *get_digest() const{
 		return this->sha1;
 	}
+	bool does_not_contain(rolling_checksum_t);
 };
 
 inline size_t blocks_per_file(file_size_t file_size, size_t block_size){

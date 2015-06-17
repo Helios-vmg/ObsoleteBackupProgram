@@ -103,8 +103,6 @@ bool BlockByBlockReader::next_block(circular_buffer &dst){
 		}else{
 			if (!read){
 				this->current_buffer = this->finish_read();
-				if (this->current_buffer && !this->current_buffer->data())
-					__debugbreak();
 				read = true;
 			}else{
 				this->eof = true;

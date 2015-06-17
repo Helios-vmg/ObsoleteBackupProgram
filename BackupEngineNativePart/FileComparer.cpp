@@ -142,6 +142,8 @@ int unsignedcmp(T a, T b){
 }
 
 bool FileComparer::search(bool offset_valid, file_offset_t target_offset){
+	if (this->old_file->does_not_contain(this->checksum))
+		return false;
 	const rsync_table_item *begin, *end,
 		*begin0, *end0,
 		*begin1, *end1,

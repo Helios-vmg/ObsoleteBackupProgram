@@ -7,3 +7,4 @@ typedef std::uint64_t u64;
 typedef u64 file_offset_t;
 typedef u64 file_size_t;
 typedef u32 rolling_checksum_t;
+typedef uintptr_t mword_t;

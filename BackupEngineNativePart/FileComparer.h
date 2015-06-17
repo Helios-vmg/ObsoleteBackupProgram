@@ -12,7 +12,7 @@ class simple_buffer{
 	size_t m_capacity;
 public:
 	size_t size;
-	simple_buffer(size_t capacity = 0){
+	simple_buffer(size_t capacity = 0): m_capacity(0){
 		this->realloc(capacity);
 	}
 	void realloc(size_t capacity = 0);
