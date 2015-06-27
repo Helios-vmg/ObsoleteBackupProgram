@@ -35,24 +35,24 @@ void simple_buffer::operator=(const circular_buffer &buffer){
 	});
 }
 
-FileComparer::FileComparer(const wchar_t *new_path, std::shared_ptr<RsyncableFile> old_file):
-		state(State::Initial),
-		old_file(old_file),
-		buffer(1){
-	this->reader.reset(new ByteByByteReader(new_path, old_file->get_block_size()));
-	auto file_size = this->reader->size();
-	this->new_block_size = RsyncableFile::scaler_function(file_size);
-	this->new_buffer.realloc(this->new_block_size);
-	this->new_table.reserve(blocks_per_file(file_size, this->new_buffer.capacity()));
-	this->result.reset(new std::vector<rsync_command>);
-	this->thread = nullptr;
+template <typename T>
+int unsignedcmp(T a, T b){
+	if (a < b)
+		return -1;
+	else if (a > b)
+		return 1;
+	return 0;
 }
 
-void FileComparer::process(){
+AbstractFileComparer::AbstractFileComparer(): thread(nullptr){
+	this->result.reset(new std::vector<rsync_command>);
+}
+
+void AbstractFileComparer::process(){
 	static const state_function functions[] = {
-		&FileComparer::state_Initial,
-		&FileComparer::state_Matching,
-		&FileComparer::state_NonMatching,
+		&AbstractFileComparer::state_Initial,
+		&AbstractFileComparer::state_Matching,
+		&AbstractFileComparer::state_NonMatching,
 	};
 	this->state = State::Initial;
 	this->started();
@@ -61,23 +61,33 @@ void FileComparer::process(){
 	this->finished();
 }
 
-const byte *FileComparer::get_old_digest() const{
-	return this->old_file->get_digest();
+void AbstractFileComparer::started(){
+	this->state = State::Initial;
+	if (this->thread_required())
+		this->thread = CreateThread(nullptr, 0, static_thread_func, this, 0, nullptr);
 }
 
-void FileComparer::state_Initial(){
-	this->reader->seek(0);
+void AbstractFileComparer::finished(){
+	this->request_thread_stop();
+	if (this->thread){
+		WaitForSingleObject(this->thread, INFINITE);
+		CloseHandle(this->thread);
+		this->thread = nullptr;
+	}
+}
+
+void AbstractFileComparer::state_Initial(){
+	this->reset_state();
 	this->new_offset = 0;
 	this->old_offset = 0;
-	if (!this->read_another_block(this->buffer)){
+	if (!this->read_more_data()){
 		this->state = State::Final;
 		return;
 	}
-	this->checksum = compute_rsync_rolling_checksum(this->buffer);
 	this->state = this->search() ? State::Matching : State::NonMatching;
 }
 
-void FileComparer::state_Matching(){
+void AbstractFileComparer::state_Matching(){
 	while (1){
 		rsync_command command;
 		command.file_offset = this->old_offset;
@@ -87,13 +97,13 @@ void FileComparer::state_Matching(){
 
 		auto last = &this->result->back();
 		while (1){
-			this->new_offset += this->old_file->get_block_size();
-			last->length += this->buffer.size();
-			if (!this->read_another_block(this->buffer)){
+			auto matching_increment = this->matching_increment();
+			this->new_offset += matching_increment;
+			last->length += matching_increment;
+			if (!this->read_more_data()){
 				this->state = State::Final;
 				return;
 			}
-			this->checksum = compute_rsync_rolling_checksum(this->buffer);
 			auto target = last->file_offset + last->get_length();
 			if (!this->search(true, target)){
 				this->state = State::NonMatching;
@@ -105,7 +115,7 @@ void FileComparer::state_Matching(){
 	}
 }
 
-void FileComparer::state_NonMatching(){
+void AbstractFileComparer::state_NonMatching(){
 	rsync_command command;
 	command.file_offset = this->new_offset;
 	command.length = 0;
@@ -114,17 +124,11 @@ void FileComparer::state_NonMatching(){
 
 	auto last = &this->result->back();
 	do{
-		this->new_offset++;
-		last->length++;
+		auto non_matching_increment = this->non_matching_increment();
+		this->new_offset += non_matching_increment;
+		last->length += non_matching_increment;
 
-		auto size = this->buffer.size();
-		this->checksum = subtract_rsync_rolling_checksum(this->checksum, this->buffer.pop(), size);
-		byte_t byte;
-		if (this->read_another_byte(byte)){
-			this->buffer.push(byte);
-			auto n = this->buffer.size();
-			this->checksum = add_rsync_rolling_checksum(this->checksum, byte, n);
-		}else if (!this->buffer.size()){
+		if (!this->non_matching_read_more_data()){
 			this->state = State::Final;
 			return;
 		}
@@ -132,13 +136,48 @@ void FileComparer::state_NonMatching(){
 	this->state = State::Matching;
 }
 
-template <typename T>
-int unsignedcmp(T a, T b){
-	if (a < b)
-		return -1;
-	else if (a > b)
-		return 1;
-	return 0;
+FileComparer::FileComparer(const wchar_t *new_path, std::shared_ptr<RsyncableFile> old_file):
+		old_file(old_file),
+		buffer(1){
+	this->reader.reset(new ByteByByteReader(new_path, old_file->get_block_size()));
+	auto file_size = this->reader->size();
+	this->new_block_size = RsyncableFile::scaler_function(file_size);
+	this->new_buffer.realloc(this->new_block_size);
+	this->new_table.reserve(blocks_per_file(file_size, this->new_buffer.capacity()));
+}
+
+const byte *FileComparer::get_old_digest() const{
+	return this->old_file->get_digest();
+}
+
+void FileComparer::request_thread_stop(){
+	this->process_new_buffer(true);
+	this->processing_queue.push_back(simple_buffer());
+}
+
+void FileComparer::reset_state(){
+	this->reader->seek(0);
+}
+
+bool FileComparer::read_more_data(){
+	if (!this->read_another_block(this->buffer))
+		return false;
+	this->checksum = compute_rsync_rolling_checksum(this->buffer);
+	return true;
+}
+
+bool FileComparer::non_matching_read_more_data(){
+	auto size = this->buffer.size();
+	this->checksum = subtract_rsync_rolling_checksum(this->checksum, this->buffer.pop(), size);
+	byte_t byte;
+	if (this->read_another_byte(byte)){
+		this->buffer.push(byte);
+		auto n = this->buffer.size();
+		this->checksum = add_rsync_rolling_checksum(this->checksum, byte, n);
+	} else if (!this->buffer.size())
+		return false;
+
+	return true;
 }
 
 bool FileComparer::search(bool offset_valid, file_offset_t target_offset){
@@ -178,6 +217,18 @@ bool FileComparer::search(bool offset_valid, file_offset_t target_offset){
 			begin1 = begin2;
 		offset_valid = false;
 	}
+}
+
+size_t FileComparer::matching_increment(){
+#ifdef _DEBUG
+	if (this->old_file->get_block_size() != this->buffer.size())
+		__debugbreak();
+#endif
+	return this->old_file->get_block_size();
+}
+
+size_t FileComparer::non_matching_increment(){
+	return 1;
 }
 
 bool FileComparer::read_another_byte(byte_t &dst){
@@ -227,11 +278,6 @@ void FileComparer::process_new_buffer(bool force){
 	this->event.set();
 }
 
-void FileComparer::started(){
-	this->stop = false;
-	this->thread = CreateThread(nullptr, 0, static_thread_func, this, 0, nullptr);
-}
-
 void FileComparer::thread_func(){
 	file_offset_t offset = 0;
 	while (true){
@@ -261,12 +307,4 @@ void FileComparer::thread_func(){
 	}
 	this->new_sha1.Final(this->new_digest);
 	std::sort(this->new_table.begin(), this->new_table.end());
-}
-
-void FileComparer::finished(){
-	this->process_new_buffer(true);
-	this->processing_queue.push_back(simple_buffer());
-	WaitForSingleObject(this->thread, INFINITE);
-	CloseHandle(this->thread);
-	this->thread = nullptr;
 }

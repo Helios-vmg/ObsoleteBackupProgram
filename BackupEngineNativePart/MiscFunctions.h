@@ -17,6 +17,9 @@ inline bool valid_handle(HANDLE handle){
 std::wstring path_from_string(const wchar_t *path);
 file_size_t get_file_size(const wchar_t *_path);
 std::string format_size(double size);
+inline std::string format_size(u64 size){
+	return format_size((double)size);
+}
 
 class PrintableBuffer{
 	const void *buffer;

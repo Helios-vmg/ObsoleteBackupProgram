@@ -52,8 +52,8 @@
       <SpecificVersion>False</SpecificVersion>
       <HintPath>..\bin64\Ionic.Zip.dll</HintPath>
     </Reference>
-    <Reference Include="Newtonsoft.Json">
-      <HintPath>..\packages\Newtonsoft.Json.6.0.8\lib\net45\Newtonsoft.Json.dll</HintPath>
+    <Reference Include="protobuf-net">
+      <HintPath>..\packages\protobuf-net.2.0.0.668\lib\net40\protobuf-net.dll</HintPath>
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
@@ -65,6 +65,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="BackupEngine.cs" />
+    <Compile Include="BackupStream.cs" />
     <Compile Include="ErrorReporter.cs" />
     <Compile Include="Serialization\ParentField.cs" />
     <Compile Include="FileSystem\FileSystemObject.cs" />

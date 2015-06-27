@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 using BackupEngine.FileSystem.FileSystemObjects;
 using BackupEngine.Serialization;
 using BackupEngine.Util;
-using Newtonsoft.Json;
+using ProtoBuf;
 
 namespace BackupEngine.FileSystem
 {
@@ -24,7 +24,6 @@ namespace BackupEngine.FileSystem
 
     public enum HashType
     {
-        Crc32,
         Sha1,
         Md5,
         Sha256,
@@ -36,7 +35,9 @@ namespace BackupEngine.FileSystem
         public Func<FileSystemObject, BackupMode> BackupModeMap = null;
     }
 
-    [JsonObject(MemberSerialization.OptOut)]
+    [ProtoContract]
+    [ProtoInclude(1001, typeof(DirectoryishFso))]
+    [ProtoInclude(1002, typeof(FilishFso))]
     public abstract class FileSystemObject
     {
         public override string ToString()
@@ -44,17 +45,22 @@ namespace BackupEngine.FileSystem
             return System.IO.Path.GetFileName(Path) ?? string.Empty;
         }
 
-        [JsonIgnore]
+        [ProtoMember(1)]
+        public ulong StreamUniqueId;
+        [ProtoMember(2)]
+        public ulong DifferentialChainUniqueId;
+
         public abstract FileSystemObjectType Type { get; }
 
+        [ProtoMember(3)]
         public string Name;
 
-        [JsonIgnore]
+        [ProtoMember(13, AsReference = true)]
         public FileSystemObject Parent;
 
+        [ProtoMember(4)]
         public string BasePath;
 
-        [JsonIgnore]
         public string PathWithoutBase
         {
             get
@@ -81,7 +87,6 @@ namespace BackupEngine.FileSystem
             }
         }
 
-        [JsonIgnore]
         public string Path
         {
             get
@@ -110,11 +115,12 @@ namespace BackupEngine.FileSystem
             }
         }
 
+        [ProtoMember(5)]
         public string Target;
 
+        [ProtoMember(6)]
         public long Size;
 
-        [JsonIgnore]
         public virtual long RecursiveSize
         {
             get
@@ -125,14 +131,17 @@ namespace BackupEngine.FileSystem
             }
         }
 
+        public bool ArchiveFlag { get; protected set; }
+        [ProtoMember(7)]
         public DateTime ModificationTime;
 
-        public Guid? UniqueId;
+        [ProtoMember(8)]
+        public Guid? FileSystemGuid;
 
-        //[JsonDictionary()]
+        [ProtoMember(9)]
         public Dictionary<HashType, byte[]> Hashes = new Dictionary<HashType, byte[]>();
 
-        //Does not compute the hash if hasn't been computed already.
+        //Does not compute the hash if it hasn't been computed already.
         public virtual byte[] GetHash(HashType type)
         {
             return Hashes.GetValueOrDefault(type, null);
@@ -141,11 +150,17 @@ namespace BackupEngine.FileSystem
         //Computes the hash if necessary.
         public abstract byte[] ComputeHash(HashType type);
 
+        public void ComputeAnyHash()
+        {
+            ComputeHash(HashType.Sha256);
+        }
+
         /*public static FileSystemObjectType GetType(Guid fileSystemObjectId)
         {
             throw new NotImplementedException();
         }*/
 
+        [ProtoMember(10)]
         public List<string> Exceptions = new List<string>();
 
         public BackupMode BackupMode;
@@ -190,13 +205,11 @@ namespace BackupEngine.FileSystem
             throw new NotImplementedException();
         }*/
 
-        [JsonIgnore]
         public virtual bool IsDirectoryish
         {
             get { return false; }
         }
 
-        [JsonIgnore]
         public bool IsLinkish
         {
             get
@@ -210,7 +223,6 @@ namespace BackupEngine.FileSystem
 
         private IErrorReporter _reporter = null;
         private Func<FileSystemObject, BackupMode> _backupModeMap = null;
-        private HashType _hashType = HashType.Md5;
 
         public abstract void Iterate(Action<FileSystemObject> f);
 
@@ -236,6 +248,9 @@ namespace BackupEngine.FileSystem
             }
         }
 
+        [ProtoMember(11)]
+        public bool IsMain;
+
         protected bool ReportError(Exception e, string context = null)
         {
             AddException(e);
@@ -260,6 +275,21 @@ namespace BackupEngine.FileSystem
             path.SplitIntoObjectAndContainer(out container, out name);
             BasePath = container;
             Name = name;
+            SetFileAttributes(path);
+        }
+
+        private void SetFileAttributes(string path)
+        {
+            try
+            {
+                ArchiveFlag = (File.GetAttributes(path) & FileAttributes.Archive) == FileAttributes.Archive;
+            }
+            catch (Exception e)
+            {
+                if (!ReportError(e, @"getting file system object attributes for """ + path + @""""))
+                    throw;
+                ArchiveFlag = true;
+            }
             try
             {
                 ModificationTime = File.GetLastWriteTimeUtc(path);
@@ -282,15 +312,7 @@ namespace BackupEngine.FileSystem
             Parent = parent;
             Name = name;
             path = path ?? Path;
-            try
-            {
-                ModificationTime = File.GetLastWriteTimeUtc(path);
-            }
-            catch (Exception e)
-            {
-                if (!ReportError(e, @"getting file system object modification time for """ + path + @""""))
-                    throw;
-            }
+            SetFileAttributes(path);
         }
 
         public bool Contains(string path)
@@ -325,6 +347,11 @@ namespace BackupEngine.FileSystem
         public Stream OpenForExclusiveRead()
         {
             return new FileStream(Path, FileMode.Open, FileAccess.Read, FileShare.None);
+        }
+
+        public virtual void SetUniqueIds(BaseBackupEngine backup)
+        {
+            StreamUniqueId = backup.GetStreamId();
         }
     }
 

@@ -6,62 +6,33 @@ using System.Runtime.Serialization;
 using System.Text;
 using System.Threading.Tasks;
 using BackupEngine.FileSystem;
-using Newtonsoft.Json;
-using Newtonsoft.Json.Serialization;
+using ProtoBuf;
 
 namespace BackupEngine.Serialization
 {
-    public class OrderedContractResolver : DefaultContractResolver
-    {
-        protected override IList<JsonProperty> CreateProperties(Type type, MemberSerialization memberSerialization)
-        {
-            var list = base.CreateProperties(type, memberSerialization).ToList();
-            list.Sort((x, y) =>
-            {
-                if (x.PropertyName == "Children")
-                    return y.PropertyName != "Children" ? 1 : 0;
-                if (y.PropertyName == "Children")
-                    return -1;
-                return String.Compare(x.PropertyName, y.PropertyName, StringComparison.InvariantCulture);
-            });
-            return list;
-        }
-    }
-
     public static class Serializer
     {
-        public static string Serialize(FileSystemObject o)
+        public static byte[] Serialize<T>(T o)
         {
-            return JsonConvert.SerializeObject(o, Formatting.Indented, new JsonSerializerSettings()
-            {
-                NullValueHandling = NullValueHandling.Ignore,
-                ContractResolver = new OrderedContractResolver(),
-                TypeNameHandling = TypeNameHandling.All,
-            });
+            var mem = new MemoryStream();
+            ProtoBuf.Serializer.Serialize(mem, o);
+            return mem.ToArray();
         }
 
-        public static FileSystemObject Deserialize(byte[] buffer)
+        public static Stream SerializeToStream<T>(T o)
         {
-            return (FileSystemObject)JsonConvert.DeserializeObject(Encoding.UTF8.GetString(buffer), new JsonSerializerSettings
-            {
-                TypeNameHandling = TypeNameHandling.All
-            });
+            return new MemoryStream(Serialize(o));
         }
 
-        public static MemoryStream SerializeToStream(FileSystemObject o)
+        public static T Deserialize<T>(byte[] buffer)
         {
-            return new MemoryStream(Encoding.UTF8.GetBytes(Serialize(o)));
+            var mem = new MemoryStream(buffer);
+            return ProtoBuf.Serializer.Deserialize<T>(mem);
         }
 
-        public static string Serialize(VersionManifest o)
+        public static T Deserialize<T>(Stream stream)
         {
-            return JsonConvert.SerializeObject(o, Formatting.Indented);
+            return ProtoBuf.Serializer.Deserialize<T>(stream);
         }
-
-        public static MemoryStream SerializeToStream(VersionManifest o)
-        {
-            return new MemoryStream(Encoding.UTF8.GetBytes(Serialize(o)));
-        }
-
     }
 }

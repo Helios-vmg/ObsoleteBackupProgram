@@ -6,11 +6,13 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using BackupEngine.Util;
-using Newtonsoft.Json;
+using ProtoBuf;
 
 namespace BackupEngine.FileSystem.FileSystemObjects
 {
-    [JsonObject(MemberSerialization.OptOut)]
+    [ProtoContract]
+    [ProtoInclude(1003, typeof(DirectoryFso))]
+    [ProtoInclude(1004, typeof(DirectorySymlinkFso))]
     public abstract class DirectoryishFso : FileSystemObject
     {
 
@@ -113,9 +115,10 @@ namespace BackupEngine.FileSystem.FileSystemObjects
         }
     }
 
-    [JsonObject(MemberSerialization.OptOut)]
+    [ProtoContract]
     public class DirectoryFso : DirectoryishFso
     {
+        [ProtoMember(12, AsReference = true)]
         public List<FileSystemObject> Children;
 
         public DirectoryFso()
@@ -155,7 +158,9 @@ namespace BackupEngine.FileSystem.FileSystemObjects
 
         public override FileSystemObject Find(string[] path, int start)
         {
-            if (start == path.Length - 1 && path[start].PathMatch(Name))
+            if (!path[start].PathMatch(Name))
+                return null;
+            if (start == path.Length - 1)
                 return this;
             if (Children == null)
                 return null;
@@ -172,9 +177,19 @@ namespace BackupEngine.FileSystem.FileSystemObjects
             foreach (var child in Children)
                 child.Iterate(f);
         }
+
+        public override void SetUniqueIds(BaseBackupEngine backup)
+        {
+            base.SetUniqueIds(backup);
+            if (Children == null)
+                return;
+            foreach (var fileSystemObject in Children)
+                fileSystemObject.SetUniqueIds(backup);
+        }
     }
 
-    [JsonObject(MemberSerialization.OptOut)]
+    [ProtoContract]
+    [ProtoInclude(1005, typeof(JunctionFso))]
     public class DirectorySymlinkFso : DirectoryishFso
     {
         public DirectorySymlinkFso()
@@ -225,7 +240,7 @@ namespace BackupEngine.FileSystem.FileSystemObjects
         }
     }
 
-    [JsonObject(MemberSerialization.OptOut)]
+    [ProtoContract]
     public class JunctionFso : DirectorySymlinkFso
     {
         public JunctionFso()

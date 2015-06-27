@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
@@ -8,11 +9,14 @@ using System.Text;
 using System.Threading.Tasks;
 using BackupEngine.Util;
 using Ionic.Crc;
-using Newtonsoft.Json;
+using ProtoBuf;
 
 namespace BackupEngine.FileSystem.FileSystemObjects
 {
-    [JsonObject(MemberSerialization.OptOut)]
+    [ProtoContract]
+    [ProtoInclude(1006, typeof(RegularFileFso))]
+    [ProtoInclude(1007, typeof(FileSymlinkFso))]
+    [ProtoInclude(1008, typeof(FileHardlink))]
     public abstract class FilishFso : FileSystemObject
     {
         protected FilishFso()
@@ -46,13 +50,13 @@ namespace BackupEngine.FileSystem.FileSystemObjects
 
             try
             {
-                UniqueId = FileSystemOperations.GetFileGuid(path);
+                FileSystemGuid = FileSystemOperations.GetFileGuid(path);
             }
             catch (Exception e)
             {
                 if (!ReportError(e, @"getting unique ID for """ + path + @""""))
                     throw;
-                UniqueId = null;
+                FileSystemGuid = null;
             }
         }
 
@@ -67,9 +71,6 @@ namespace BackupEngine.FileSystem.FileSystemObjects
                 {
                     switch (type)
                     {
-                        case HashType.Crc32:
-                            digest = ComputeCrc32(file);
-                            break;
                         case HashType.Sha1:
                             digest = ComputeSha1(file);
                             break;
@@ -87,19 +88,13 @@ namespace BackupEngine.FileSystem.FileSystemObjects
                 {
                     Hashes[type] = digest;
                 }
-        }
+            }
             catch (Exception e)
             {
                 if (!ReportError(e, @"computing hash for """ + Path + @""""))
                     throw;
             }
             return digest;
-        }
-
-        private byte[] ComputeCrc32(FileStream file)
-        {
-            var crc32 = new CRC32().GetCrc32(file);
-            return BitConverter.GetBytes(crc32);
         }
 
         private byte[] ComputeSha1(FileStream file)
@@ -128,7 +123,7 @@ namespace BackupEngine.FileSystem.FileSystemObjects
         }
     }
 
-    [JsonObject(MemberSerialization.OptOut)]
+    [ProtoContract]
     public class RegularFileFso : FilishFso
     {
         public RegularFileFso()
@@ -153,7 +148,8 @@ namespace BackupEngine.FileSystem.FileSystemObjects
         }
     }
 
-    [JsonObject(MemberSerialization.OptOut)]
+    [ProtoContract]
+    [ProtoInclude(1009, typeof(FileReparsePointFso))]
     public class FileSymlinkFso : FilishFso
     {
         public FileSymlinkFso() : base()
@@ -194,7 +190,7 @@ namespace BackupEngine.FileSystem.FileSystemObjects
         }
     }
 
-    [JsonObject(MemberSerialization.OptOut)]
+    [ProtoContract]
     public class FileReparsePointFso : FileSymlinkFso
     {
         public FileReparsePointFso()
@@ -217,7 +213,7 @@ namespace BackupEngine.FileSystem.FileSystemObjects
         }
     }
 
-    [JsonObject(MemberSerialization.OptOut)]
+    [ProtoContract]
     public class FileHardlink : FilishFso
     {
         public readonly List<string> Peers;

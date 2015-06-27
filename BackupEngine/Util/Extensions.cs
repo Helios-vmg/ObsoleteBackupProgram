@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 
 namespace BackupEngine.Util
 {
@@ -20,6 +21,18 @@ namespace BackupEngine.Util
         public static IEnumerable<T> ToEnumerable<T>(this T o)
         {
             yield return o;
+        }
+
+        public static byte[] ReadAllBytes(this Stream stream)
+        {
+            var ret = new byte[stream.Length];
+            stream.Read(ret, 0, ret.Length);
+            return ret;
+        }
+
+        public static T Back<T>(this List<T> list)
+        {
+            return list[list.Count - 1];
         }
     }
 }

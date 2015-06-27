@@ -3,16 +3,20 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using Newtonsoft.Json;
+using ProtoBuf;
 
 namespace BackupEngine
 {
-    [JsonObject(MemberSerialization.OptOut)]
+    [ProtoContract(ImplicitFields = ImplicitFields.AllPublic)]
     public class VersionManifest
     {
         public DateTime CreationTime;
-        public uint VersionNumber;
-        public int DependentOnVersion = -1;
+        public int VersionNumber;
+        public List<int> VersionDependencies = new List<int>();
         public int EntryCount;
+        public ulong FirstStreamUniqueId;
+        public ulong NextStreamUniqueId;
+        public ulong FirstDifferentialChainUniqueId;
+        public ulong NextDifferentialChainUniqueId;
     }
 }

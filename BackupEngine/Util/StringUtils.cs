@@ -38,14 +38,26 @@ namespace BackupEngine.Util
 
         public static bool PathMatch(this string a, string b)
         {
-            return a.Equals(b, StringComparison.InvariantCultureIgnoreCase);
+            return a.DecomposePath().PathMatch(b.DecomposePath());
         }
 
-        private static readonly char[] SingleBackslash = {'\\'};
+        public static bool PathMatch(this IEnumerable<string> a, IEnumerable<string> b)
+        {
+            var A = a.ToArray();
+            var B = b.ToArray();
+            if (A.Length != B.Length)
+                return false;
+            for (int i = A.Length; i-- != 0;)
+                if (!A[i].Equals(B[i], StringComparison.CurrentCultureIgnoreCase))
+                    return false;
+            return true;
+        }
+
+        private static readonly char[] PathSplitters = {'\\', '/'};
 
         public static IEnumerable<string> DecomposePath(this string path)
         {
-            return path.Split(SingleBackslash, StringSplitOptions.RemoveEmptyEntries);
+            return path.Split(PathSplitters, StringSplitOptions.RemoveEmptyEntries);
         }
 
         public static bool PathStartsWith(this string thisPath, IEnumerable<string> otherPath)
