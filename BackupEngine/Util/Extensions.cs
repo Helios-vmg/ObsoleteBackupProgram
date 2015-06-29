@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 
 namespace BackupEngine.Util
 {
@@ -33,6 +34,16 @@ namespace BackupEngine.Util
         public static T Back<T>(this List<T> list)
         {
             return list[list.Count - 1];
+        }
+
+        public static IEnumerable<T> Sorted<T>(this IEnumerable<T> xs)
+        {
+            return xs.OrderBy(x => x);
+        }
+
+        public static IEnumerable<T> Reversed<T>(this IEnumerable<T> xs)
+        {
+            return xs.Reverse();
         }
     }
 }

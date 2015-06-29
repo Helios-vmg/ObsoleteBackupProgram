@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using BackupEngine.FileSystem.FileSystemObjects.Exceptions;
 using BackupEngine.Util;
 using ProtoBuf;
 
@@ -79,6 +80,14 @@ namespace BackupEngine.FileSystem.FileSystemObjects
         public override bool IsDirectoryish
         {
             get { return true; }
+        }
+
+        public override void DeleteExisting(string basePath = null)
+        {
+            var path = PathOverrideBaseWeak(basePath);
+            if (!Directory.Exists(path))
+                return;
+            Directory.Delete(path, true);
         }
 
         public FileSystemObject CreateChild(string name, string path = null)
@@ -186,6 +195,12 @@ namespace BackupEngine.FileSystem.FileSystemObjects
             foreach (var fileSystemObject in Children)
                 fileSystemObject.SetUniqueIds(backup);
         }
+
+        protected override void RestoreInternal(string basePath)
+        {
+            var path = PathOverrideBaseWeak(basePath);
+            Directory.CreateDirectory(path);
+        }
     }
 
     [ProtoContract]
@@ -238,6 +253,12 @@ namespace BackupEngine.FileSystem.FileSystemObjects
         {
             return start == path.Length - 1 && path[start].PathMatch(Name) ? this : null;
         }
+
+        protected override void RestoreInternal(string basePath)
+        {
+            var path = PathOverrideBaseWeak(basePath);
+            FileSystemOperations.CreateDirectorySymlink(path, Target);
+        }
     }
 
     [ProtoContract]
@@ -245,21 +266,30 @@ namespace BackupEngine.FileSystem.FileSystemObjects
     {
         public JunctionFso()
         {
+            throw new ReparsePointsNotImplemented(string.Empty);
         }
 
         public JunctionFso(string path, FileSystemObjectSettings settings = null)
             : base(path, settings)
         {
+            throw new ReparsePointsNotImplemented(path);
         }
 
         public JunctionFso(FileSystemObject parent, string name, string path = null)
             : base(parent, name, path)
         {
+            throw new ReparsePointsNotImplemented(path ?? Path);
         }
 
         public override FileSystemObjectType Type
         {
             get { return FileSystemObjectType.Junction; }
+        }
+
+        protected override void RestoreInternal(string basePath)
+        {
+            var path = PathOverrideBaseWeak(basePath);
+            FileSystemOperations.CreateJunction(path, Target);
         }
     }
 }

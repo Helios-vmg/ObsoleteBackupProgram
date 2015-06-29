@@ -58,6 +58,26 @@ namespace BackupEngine.FileSystem
             CallingConvention = CallingConvention.Cdecl)]
         private static extern int get_file_size(out long size, string path);
 
+        [DllImport("BackupEngineNativePart64.dll", CharSet = CharSet.Unicode,
+            CallingConvention = CallingConvention.Cdecl)]
+        private static extern int create_symlink(string linkPath, string targetPath);
+
+        [DllImport("BackupEngineNativePart64.dll", CharSet = CharSet.Unicode,
+            CallingConvention = CallingConvention.Cdecl)]
+        private static extern int create_directory_symlink(string linkPath, string targetPath);
+
+        [DllImport("BackupEngineNativePart64.dll", CharSet = CharSet.Unicode,
+            CallingConvention = CallingConvention.Cdecl)]
+        private static extern int create_junction(string linkPath, string targetPath);
+
+        [DllImport("BackupEngineNativePart64.dll", CharSet = CharSet.Unicode,
+            CallingConvention = CallingConvention.Cdecl)]
+        private static extern int create_file_reparse_point(string linkPath, string targetPath);
+
+        [DllImport("BackupEngineNativePart64.dll", CharSet = CharSet.Unicode,
+            CallingConvention = CallingConvention.Cdecl)]
+        private static extern int create_hardlink(string linkPath, string existingFile);
+
         public static bool PathIsReparsePoint(string path)
         {
             return is_reparse_point(path);
@@ -133,6 +153,38 @@ namespace BackupEngine.FileSystem
             if (result != 0)
                 throw new Win32Exception(result);
             return ret;
+        }
+
+        private static void CallLinkFunction(Func<string, string, int> f, string linkPath, string targetPath)
+        {
+            var result = f(linkPath, targetPath);
+            if (result != 0)
+                throw new Win32Exception(result);
+        }
+
+        public static void CreateSymlink(string linkPath, string targetPath)
+        {
+            CallLinkFunction(create_symlink, linkPath, targetPath);
+        }
+
+        public static void CreateDirectorySymlink(string linkPath, string targetPath)
+        {
+            CallLinkFunction(create_directory_symlink, linkPath, targetPath);
+        }
+
+        public static void CreateJunction(string linkPath, string targetPath)
+        {
+            CallLinkFunction(create_junction, linkPath, targetPath);
+        }
+
+        public static void CreateFileReparsePoint(string linkPath, string targetPath)
+        {
+            CallLinkFunction(create_file_reparse_point, linkPath, targetPath);
+        }
+
+        public static void CreateHardlink(string linkPath, string targetPath)
+        {
+            CallLinkFunction(create_hardlink, linkPath, targetPath);
         }
     }
 }

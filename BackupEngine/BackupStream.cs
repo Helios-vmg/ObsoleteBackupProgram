@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -24,10 +25,14 @@ namespace BackupEngine
         public ulong UniqueId;
 
         public abstract StreamType Type { get; }
-        public FileSystemObject Fso;
+        public readonly List<FileSystemObject> FileSystemObjects = new List<FileSystemObject>();
+        public bool Restored { get; protected set; }
 
         public abstract long VirtualSize { get; }
         public abstract long PhysicalSize { get; }
+
+        public abstract void GetDependencies(HashSet<int> versionDependencies);
+        internal abstract Stream GetStream(VersionForRestore version);
     }
 
     [ProtoContract]
@@ -53,6 +58,12 @@ namespace BackupEngine
             get { return _physicalSize; }
         }
 
+        public override void GetDependencies(HashSet<int> versionDependencies){}
+
+        internal override Stream GetStream(VersionForRestore version)
+        {
+            throw new NotImplementedException();
+        }
     }
 
     [ProtoContract]
@@ -92,6 +103,15 @@ namespace BackupEngine
             }
         }
 
+        public override void GetDependencies(HashSet<int> versionDependencies)
+        {
+            throw new NotImplementedException();
+        }
+
+        internal override Stream GetStream(VersionForRestore version)
+        {
+            throw new NotImplementedException();
+        }
     }
 
 

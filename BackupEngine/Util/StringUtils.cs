@@ -36,6 +36,68 @@ namespace BackupEngine.Util
             return name;
         }
 
+        public static string RecomposePath(this IEnumerable<string> path)
+        {
+            var ret = new StringBuilder();
+            foreach (var part in path)
+            {
+                if (ret.Length != 0)
+                    ret.Append('\\');
+                ret.Append(part);
+            }
+            return ret.ToString();
+        }
+
+        private static bool NeedsNormalization(string path)
+        {
+            if (path == null)
+                return false;
+            var lastWasSlash = false;
+            foreach (var c in path)
+            {
+                if (c == '/')
+                    return true;
+                if (c == '\\')
+                {
+                    if (lastWasSlash)
+                        return true;
+                    lastWasSlash = true;
+                }
+                else
+                    lastWasSlash = false;
+            }
+            return lastWasSlash;
+        }
+
+        //Only normalizes path separators to backslash, removes consecutive
+        //path separators, and ensures that the last character is not a
+        //backslash.
+        public static string NormalizePath(this string path)
+        {
+            if (!NeedsNormalization(path))
+                return path;
+            var lastWasSlash = false;
+            var ret = new StringBuilder(path.Length);
+            foreach (var c in path)
+            {
+                if (c == '/' || c == '\\')
+                {
+                    if (lastWasSlash)
+                        continue;
+                    ret.Append('\\');
+                    lastWasSlash = true;
+                }
+                else
+                {
+                    ret.Append(c);
+                    lastWasSlash = false;
+                }
+            }
+            if (lastWasSlash)
+                ret.Length--;
+            return ret.ToString();
+        }
+
         public static bool PathMatch(this string a, string b)
         {
             return a.DecomposePath().PathMatch(b.DecomposePath());

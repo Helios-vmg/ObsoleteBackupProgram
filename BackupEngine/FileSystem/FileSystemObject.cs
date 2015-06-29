@@ -45,81 +45,67 @@ namespace BackupEngine.FileSystem
             return System.IO.Path.GetFileName(Path) ?? string.Empty;
         }
 
-        [ProtoMember(1)]
-        public ulong StreamUniqueId;
-        [ProtoMember(2)]
-        public ulong DifferentialChainUniqueId;
+        [ProtoMember(1)] public ulong StreamUniqueId;
+        [ProtoMember(2)] public ulong DifferentialChainUniqueId;
+        [ProtoMember(3)] public string Name;
+        [ProtoMember(4)] public string BasePath;
+        [ProtoMember(5)] public string Target;
+        [ProtoMember(6)] public long Size;
+        [ProtoMember(7)] public DateTime ModificationTime;
+        [ProtoMember(8)] public Guid? FileSystemGuid;
+        [ProtoMember(9)] public Dictionary<HashType, byte[]> Hashes = new Dictionary<HashType, byte[]>();
+        [ProtoMember(10)] public List<string> Exceptions = new List<string>();
+        [ProtoMember(11)] public bool IsMain;
+        [ProtoMember(13, AsReference = true)] public FileSystemObject Parent;
+        [ProtoMember(14)] public int LatestVersion;
 
         public abstract FileSystemObjectType Type { get; }
 
-        [ProtoMember(3)]
-        public string Name;
-
-        [ProtoMember(13, AsReference = true)]
-        public FileSystemObject Parent;
-
-        [ProtoMember(4)]
-        public string BasePath;
+        public string Path
+        {
+            get { return PathOverrideBase(null, false); }
+        }
 
         public string PathWithoutBase
         {
-            get
-            {
-                var _this = this;
-                var temp = new List<string>();
-                var expectedLength = 0;
-                while (true)
-                {
-                    temp.Add(_this.Name);
-                    expectedLength += _this.Name.Length + 1;
-                    if (_this.Parent == null)
-                        break;
-                    _this = _this.Parent;
-                }
-                var ret = new StringBuilder(expectedLength);
-                for (var i = temp.Count; i-- != 0; )
-                {
-                    if (ret.Length != 0)
-                        ret.Append(@"\");
-                    ret.Append(temp[i]);
-                }
-                return ret.ToString();
-            }
+            get { return PathOverrideBase(); }
         }
 
-        public string Path
+        protected string PathOverrideBaseWeak(string basePath = null)
         {
-            get
-            {
-                var _this = this;
-                var temp = new List<string>();
-                var expectedLength = 0;
-                while (true)
-                {
-                    temp.Add(_this.Name);
-                    expectedLength += _this.Name.Length + 1;
-                    if (_this.Parent == null)
-                        break;
-                    _this = _this.Parent;
-                }
-                temp.Add(_this.BasePath);
-                expectedLength += _this.BasePath.Length + 1;
-                var ret = new StringBuilder(expectedLength);
-                for (var i = temp.Count; i-- != 0;)
-                {
-                    if (ret.Length != 0)
-                        ret.Append(@"\");
-                    ret.Append(temp[i]);
-                }
-                return ret.ToString();
-            }
+            return PathOverrideBase(basePath, basePath != null);
         }
 
-        [ProtoMember(5)]
-        public string Target;
+        protected string PathOverrideBase(string basePath = null, bool @override = true)
+        {
+            var _this = this;
+            var temp = new List<string>();
+            var expectedLength = 0;
+            while (true)
+            {
+                temp.Add(_this.Name);
+                expectedLength += _this.Name.Length + 1;
+                if (_this.Parent == null)
+                    break;
+                _this = _this.Parent;
+            }
 
-        [ProtoMember(6)]
-        public long Size;
+            var s = !@override ? _this.BasePath : basePath.NormalizePath();
+            if (s != null)
+            {
+                temp.Add(s);
+                expectedLength += s.Length + 1;
+            }
+
+            var ret = new StringBuilder(expectedLength);
+            for (var i = temp.Count; i-- != 0; )
+            {
+                if (ret.Length != 0)
+                    ret.Append(@"\");
+                ret.Append(temp[i]);
+            }
+            return ret.ToString();
+        }
 
         public virtual long RecursiveSize
         {
@@ -132,14 +118,7 @@ namespace BackupEngine.FileSystem
         }
 
         public bool ArchiveFlag { get; protected set; }
-        [ProtoMember(7)]
-        public DateTime ModificationTime;
-
-        [ProtoMember(8)]
-        public Guid? FileSystemGuid;
-
-        [ProtoMember(9)]
-        public Dictionary<HashType, byte[]> Hashes = new Dictionary<HashType, byte[]>();
+        
 
         //Does not compute the hash if it hasn't been computed already.
         public virtual byte[] GetHash(HashType type)
@@ -159,9 +138,6 @@ namespace BackupEngine.FileSystem
         {
             throw new NotImplementedException();
         }*/
-
-        [ProtoMember(10)]
-        public List<string> Exceptions = new List<string>();
 
         public BackupMode BackupMode;
 
@@ -248,8 +224,12 @@ namespace BackupEngine.FileSystem
             }
         }
 
-        [ProtoMember(11)]
-        public bool IsMain;
+        public virtual bool StreamRequired
+        {
+            get { return false; }
+        }
+
+        public BackupStream BackupStream;
 
         protected bool ReportError(Exception e, string context = null)
         {
@@ -352,6 +332,26 @@ namespace BackupEngine.FileSystem
         public virtual void SetUniqueIds(BaseBackupEngine backup)
         {
             StreamUniqueId = backup.GetStreamId();
+        }
+
+        public abstract void DeleteExisting(string basePath = null);
+
+        public virtual bool Restore(string basePath = null)
+        {
+            if (StreamRequired)
+                return false;
+            RestoreInternal(basePath);
+            return true;
+        }
+
+        protected virtual void RestoreInternal(string basePath)
+        {
+            throw new Exception("Incorrect implementation.");
+        }
+
+        public virtual void Restore(Stream stream, string basePath = null)
+        {
+            throw new Exception("Incorrect implementation.");
         }
     }
 

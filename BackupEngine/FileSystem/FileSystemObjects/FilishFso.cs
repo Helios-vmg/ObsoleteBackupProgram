@@ -7,6 +7,7 @@ using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
+using BackupEngine.FileSystem.FileSystemObjects.Exceptions;
 using BackupEngine.Util;
 using Ionic.Crc;
 using ProtoBuf;
@@ -121,6 +122,14 @@ namespace BackupEngine.FileSystem.FileSystemObjects
         {
             return start == path.Length - 1 && path[start].PathMatch(Name) ? this : null;
         }
+
+        public override void DeleteExisting(string basePath = null)
+        {
+            var path = PathOverrideBaseWeak(basePath);
+            if (!File.Exists(path))
+                return;
+            File.Delete(path);
+        }
     }
 
     [ProtoContract]
@@ -145,6 +154,18 @@ namespace BackupEngine.FileSystem.FileSystemObjects
         public override FileSystemObjectType Type
         {
             get { return FileSystemObjectType.RegularFile; }
+        }
+
+        public override bool StreamRequired
+        {
+            get { return true; }
+        }
+
+        public override void Restore(Stream stream, string basePath = null)
+        {
+            var path = PathOverrideBaseWeak(basePath);
+            using (var file = new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.None))
+                stream.CopyTo(file);
         }
     }
 
@@ -188,6 +209,12 @@ namespace BackupEngine.FileSystem.FileSystemObjects
         {
             get { return FileSystemObjectType.FileSymlink; }
         }
+
+        protected override void RestoreInternal(string basePath)
+        {
+            var path = PathOverrideBaseWeak(basePath);
+            FileSystemOperations.CreateSymlink(path, Target);
+        }
     }
 
     [ProtoContract]
@@ -195,21 +222,30 @@ namespace BackupEngine.FileSystem.FileSystemObjects
     {
         public FileReparsePointFso()
         {
+            throw new ReparsePointsNotImplemented(string.Empty);
         }
 
         public FileReparsePointFso(string path, FileSystemObjectSettings settings = null)
             : base(path, settings)
         {
+            throw new ReparsePointsNotImplemented(path);
         }
 
         public FileReparsePointFso(FileSystemObject parent, string name, string path = null)
             : base(parent, name, path)
         {
+            throw new ReparsePointsNotImplemented(path ?? Path);
         }
 
         public override FileSystemObjectType Type
         {
             get { return FileSystemObjectType.FileReparsePoint; }
+        }
+
+        protected override void RestoreInternal(string basePath)
+        {
+            var path = PathOverrideBaseWeak(basePath);
+            FileSystemOperations.CreateFileReparsePoint(path, Target);
         }
     }
 
@@ -238,6 +274,12 @@ namespace BackupEngine.FileSystem.FileSystemObjects
         public override FileSystemObjectType Type
         {
             get { return FileSystemObjectType.FileHardlink; }
+        }
+
+        protected override void RestoreInternal(string basePath)
+        {
+            var path = PathOverrideBaseWeak(basePath);
+            FileSystemOperations.CreateHardlink(path, Target);
         }
     }
 }

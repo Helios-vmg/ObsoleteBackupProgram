@@ -144,19 +144,20 @@ namespace test1
 
         static void Main(string[] args)
         {
-#if true
+#if false
             {
-                var bu = new Backupper(@"z:\000");
+                var bu = new Backupper(@"c:\Test\Backup");
                 bu.Sources.Add(@"C:\Test\mono");
 
                 bu.PerformBackup();
             }
 #else
             {
-                var bu = new Backupper(@"g:\Backup\000");
-                bu.Sources.Add(@"f:\Data\Programming\gitsample\mono");
+                var bu = new Backupper(@"g:\Backup\001");
+                bu.Sources.Add(@"f:\Backups\test");
 
-                bu.PerformBackup();
+                bu.RestoreBackup();
+                //bu.PerformBackup();
             }
 #endif
             /*

@@ -48,9 +48,18 @@ typedef struct _REPARSE_DATA_BUFFER {
     } DUMMYUNIONNAME;
 } REPARSE_DATA_BUFFER, *PREPARSE_DATA_BUFFER;
 
-static int internal_get_reparse_point_target(const wchar_t *path, unsigned long *unrecognized, std::wstring *target_path, bool *is_symlink){
+static bool starts_with(const std::wstring &a, const wchar_t *b){
+	auto l = wcslen(b);
+	if (a.size() < l)
+		return false;
+	while (l--)
+		if (a[l] != b[l])
+			return false;
+	return true;
+}
+
+int internal_get_reparse_point_target(const wchar_t *path, unsigned long *unrecognized, std::wstring *target_path, bool *is_symlink){
 	HANDLE h = CreateFileW(path, 0, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING, FILE_FLAG_OPEN_REPARSE_POINT | FILE_FLAG_BACKUP_SEMANTICS, nullptr);
-	std::wstring ret;
 	if (h == INVALID_HANDLE_VALUE)
 		return 1;
 
@@ -68,7 +77,11 @@ static int internal_get_reparse_point_target(const wchar_t *path, unsigned long 
 					auto p = (char *)buf->SymbolicLinkReparseBuffer.PathBuffer + buf->SymbolicLinkReparseBuffer.SubstituteNameOffset;
 					auto begin = (const wchar_t *)p;
 					auto end = (const wchar_t *)(p + buf->SymbolicLinkReparseBuffer.SubstituteNameLength);
-					ret = std::wstring(begin, end);
+					if (!!target_path){
+						target_path->assign(begin, end);
+						if (starts_with(*target_path, L"\\??\\"))
+							*target_path = target_path->substr(4);
+					}
 					if (is_symlink)
 						*is_symlink = true;
 				}
@@ -78,7 +91,11 @@ static int internal_get_reparse_point_target(const wchar_t *path, unsigned long 
 					auto p = (char *)buf->MountPointReparseBuffer.PathBuffer + buf->MountPointReparseBuffer.SubstituteNameOffset;
 					auto begin = (const wchar_t *)p;
 					auto end = (const wchar_t *)(p + buf->MountPointReparseBuffer.SubstituteNameLength);
-					ret = std::wstring(begin, end);
+					if (!!target_path){
+						target_path->assign(begin, end);
+						if (starts_with(*target_path, L"\\??\\"))
+							*target_path = target_path->substr(4);
+					}
 					if (is_symlink)
 						*is_symlink = false;
 				}
@@ -90,8 +107,6 @@ static int internal_get_reparse_point_target(const wchar_t *path, unsigned long 
 		}
 	}
 	CloseHandle(h);
-	if (target_path)
-		*target_path = ret;
 	return 0;
 }
 
@@ -171,22 +186,7 @@ EXPORT_THIS unsigned get_file_system_object_type(const wchar_t *_path){
 		return (unsigned)FileSystemObjectType::Directory;
 	std::wstring target;
 	internal_get_reparse_point_target(path.c_str(), nullptr, &target, &is_symlink);
-#if 0
-	if (!exists(target.c_str()))
-		return (unsigned)FileSystemObjectType::Unknown;
-	
-	auto preliminary = (FileSystemObjectType)get_file_system_object_type(target.c_str());
-	switch (preliminary){
-		case FileSystemObjectType::Directory:
-		case FileSystemObjectType::DirectorySymlink:
-		case FileSystemObjectType::Junction:
-			return (unsigned)(is_symlink ? FileSystemObjectType::DirectorySymlink : FileSystemObjectType::Junction);
-		default:
-			return (unsigned)FileSystemObjectType::FileSymlink;
-	}
-#else
 	return (unsigned)(is_symlink ? FileSystemObjectType::DirectorySymlink : FileSystemObjectType::Junction);
-#endif
 }
 
 EXPORT_THIS int list_all_hardlinks(const wchar_t *_path, callback f){
@@ -249,4 +249,36 @@ EXPORT_THIS int get_file_size(__int64 *dst, const wchar_t *_path){
 		return GetLastError();
 	*dst = (((unsigned __int64)fad.nFileSizeHigh) << 32) | ((unsigned __int64)fad.nFileSizeLow);
 	return 0;
+}
+
+int create_symlink(const wchar_t *_link_location, const wchar_t *_target_location, bool directory){
+	auto link_location = path_from_string(_link_location);
+	auto target_location = path_from_string(_target_location);
+	if (CreateSymbolicLinkW(link_location.c_str(), target_location.c_str(), directory ? SYMBOLIC_LINK_FLAG_DIRECTORY : 0))
+		return 0;
+	return GetLastError();
+}
+
+EXPORT_THIS int create_symlink(const wchar_t *_link_location, const wchar_t *_target_location){
+	return create_symlink(_link_location, _target_location, false);
+}
+
+EXPORT_THIS int create_directory_symlink(const wchar_t *_link_location, const wchar_t *_target_location){
+	return create_symlink(_link_location, _target_location, true);
+}
+
+EXPORT_THIS int create_junction(const wchar_t *_link_location, const wchar_t *_target_location){
+	return E_FAIL;
+}
+
+EXPORT_THIS int create_file_reparse_point(const wchar_t *_link_location, const wchar_t *_target_location){
+	return E_FAIL;
+}
+
+EXPORT_THIS int create_hardlink(const wchar_t *_link_location, const wchar_t *_existing_file){
+	auto link_location = path_from_string(_link_location);
+	auto existing_file = path_from_string(_existing_file);
+	if (CreateHardLinkW(link_location.c_str(), existing_file.c_str(), nullptr))
+		return 0;
+	return GetLastError();
 }
