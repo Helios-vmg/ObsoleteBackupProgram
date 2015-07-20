@@ -166,7 +166,7 @@ namespace BackupEngine
             BackupStream backupStream;
             if (!dict.TryGetValue(fso.StreamUniqueId, out backupStream))
                 throw new InvalidBackup(Path, "Couldn't locate stream for object \"" + fso.PathWithoutBase + "\", even though the metadata states it should be there.");
-            return backupStream.GetStream(this, fso.ZipPath);
+            return backupStream.GetStream(this);
         }
     }
 }

@@ -312,13 +312,22 @@ namespace BackupEngine
                 firstStream = manifest.NextStreamUniqueId;
             }
             SetBaseObjects();
+            foreach (var baseObject in BaseObjects)
+            {
+                baseObject.Iterate(fso =>
+                {
+                    var found = _oldObjects.Select(x => x.Find(fso.Path)).FirstOrDefault();
+                    if (found == null)
+                        return;
+                    fso.StreamUniqueId = found.StreamUniqueId;
+                });
+            }
             GenerateZip(startTime, CheckAndMaybeAdd, NewVersionNumber, firstStream, firstDiff);
         }
 
         public void RestoreBackup()
         {
             _purpose |= InstantiationPurpose.RestoreBackup;
-            //InitializeRanges();
 
             VersionForRestore latestVersion = null;
             try
@@ -342,7 +351,7 @@ namespace BackupEngine
 
                     latestVersion = versions[latestVersionNumber];
                     latestVersion.FillDependencies(versions);
-                    latestVersion.SetAllStreamIds();
+                    //latestVersion.SetAllStreamIds();
                 }
 
                 foreach (var fileSystemObject in _oldObjects.Reversed())
@@ -374,6 +383,7 @@ namespace BackupEngine
                 UniqueId = fso.StreamUniqueId,
                 _physicalSize = fso.Size,
                 _virtualSize = fso.Size,
+                ZipPath = fso.ZipPath,
             };
             ret.FileSystemObjects.Add(fso);
             return ret;
@@ -686,6 +696,7 @@ namespace BackupEngine
                             UniqueId = fso.StreamUniqueId,
                             _physicalSize = fso.Size,
                             _virtualSize = fso.Size,
+                            ZipPath = fso.ZipPath,
                         };
                     newStream.FileSystemObjects.Add(fso);
                     break;
