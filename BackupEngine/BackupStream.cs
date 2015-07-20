@@ -32,7 +32,7 @@ namespace BackupEngine
         public abstract long PhysicalSize { get; }
 
         public abstract void GetDependencies(HashSet<int> versionDependencies);
-        internal abstract Stream GetStream(VersionForRestore version);
+        internal abstract Stream GetStream(VersionForRestore version, string path);
     }
 
     [ProtoContract]
@@ -60,9 +60,10 @@ namespace BackupEngine
 
         public override void GetDependencies(HashSet<int> versionDependencies){}
 
-        internal override Stream GetStream(VersionForRestore version)
+        internal override Stream GetStream(VersionForRestore version, string path)
         {
-            throw new NotImplementedException();
+            var entry = BaseBackupEngine.FindEntry(version.Zip, path);
+            return entry.OpenReader();
         }
     }
 
@@ -108,7 +109,7 @@ namespace BackupEngine
             throw new NotImplementedException();
         }
 
-        internal override Stream GetStream(VersionForRestore version)
+        internal override Stream GetStream(VersionForRestore version, string path)
         {
             throw new NotImplementedException();
         }

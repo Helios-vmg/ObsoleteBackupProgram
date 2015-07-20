@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -69,6 +70,30 @@ namespace BackupEngine.FileSystem
         public string PathWithoutBase
         {
             get { return PathOverrideBase(); }
+        }
+
+        public int EntryNumber = -1;
+
+        private int GetEntryContainer
+        {
+            get
+            {
+                for (var _this = this; _this != null; _this = _this.Parent)
+                    if (_this.EntryNumber >= 0)
+                        return _this.EntryNumber;
+                return -1;
+            }
+        }
+
+        public string ZipPath
+        {
+            get
+            {
+                var noBase = PathWithoutBase;
+                var container = GetEntryContainer;
+                Debug.Assert(container >= 0);
+                return BaseBackupEngine.GetEntryRoot(container) + noBase;
+            }
         }
 
         protected string PathOverrideBaseWeak(string basePath = null)

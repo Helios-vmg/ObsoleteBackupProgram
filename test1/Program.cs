@@ -144,12 +144,14 @@ namespace test1
 
         static void Main(string[] args)
         {
-#if false
+#if true
             {
-                var bu = new Backupper(@"c:\Test\Backup");
-                bu.Sources.Add(@"C:\Test\mono");
+                var bu = new Backupper(@"c:\test\Backup");
+                //var bu = new Backupper(@"g:\Backup\test\Backup");
+                //bu.Sources.Add(@"C:\Test\mono");
 
-                bu.PerformBackup();
+                //bu.PerformBackup();
+                bu.RestoreBackup();
             }
 #else
             {

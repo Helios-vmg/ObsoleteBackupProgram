@@ -38,6 +38,16 @@ namespace BackupEngine
         Rsync,
     }
 
+    [Flags]
+    public enum InstantiationPurpose
+    {
+        None = 0,
+        PerformBackup = 1 << 0,
+        RestoreBackup = 2 << 0,
+        VerifyBackup = 3 << 0,
+        TestBackup = 4 << 0,
+    }
+
     public enum ChangeCriterium
     {
         ArchiveFlag,
@@ -49,20 +59,24 @@ namespace BackupEngine
 
     public abstract class BaseBackupEngine
     {
+        public const ulong InvalidStreamId = 0;
+        public const ulong InvalidDifferentialChainId = 0;
         //Stream IDs are assigned per FileSystemObject, so a single path backed
         //up will have a different stream ID in every version it appears.
-        public ulong NextStreamUniqueId = 1;
+        public ulong NextStreamUniqueId = InvalidStreamId + 1;
         //Differential-chain IDs are assigned per path per differential chain.
         //This is used to identify separate differential chains.
-        public ulong NextDifferentialChainUniqueId = 1;
+        public ulong NextDifferentialChainUniqueId = InvalidDifferentialChainId + 1;
+
+        private InstantiationPurpose _purpose = InstantiationPurpose.None;
 
         private struct Range
         {
             public ulong Begin, End;
         }
 
-        private readonly List<Range> _streamRanges = new List<Range>();
-        private readonly List<Range> _differentialRanges = new List<Range>();
+        private List<Range> _streamRanges;
+        private List<Range> _differentialRanges;
 
         //If followLinkTargets is set, the target locations of links that lead
         //to locations not covered by any source locations are added as source
@@ -118,7 +132,7 @@ namespace BackupEngine
             Versions.Sort();
         }
 
-        private static ZipEntry FindEntry(ZipFile zip, string name)
+        public static ZipEntry FindEntry(ZipFile zip, string name)
         {
             return zip.Entries.FirstOrDefault(entry => entry.FileName.PathMatch(name));
         }
@@ -139,7 +153,11 @@ namespace BackupEngine
             if (entry == null)
                 throw new InvalidBackup(TargetLocation, path + " not found");
             using (var stream = entry.OpenReader())
-                return Serializer.Deserialize<FileSystemObject>(stream);
+            {
+                var ret = Serializer.Deserialize<FileSystemObject>(stream);
+                ret.EntryNumber = entryId;
+                return ret;
+            }
         }
 
         internal List<BackupStream> OpenBackupStream(ZipFile zip, int entryId)
@@ -152,16 +170,13 @@ namespace BackupEngine
                 return Serializer.Deserialize<List<BackupStream>>(stream);
         }
 
-        protected BaseBackupEngine(string targetPath)
+        private void InitializeRanges()
         {
-            TargetLocation = targetPath;
-            if (!Directory.Exists(targetPath))
-            {
-                if (File.Exists(targetPath))
-                    throw new TargetLocationIsFile(targetPath);
-                Directory.CreateDirectory(targetPath);
-            }
-            SetVersions();
+            if ((_purpose & (InstantiationPurpose.RestoreBackup | InstantiationPurpose.TestBackup)) == 0 || _streamRanges != null)
+                return;
+
+            _streamRanges = new List<Range>();
+            _differentialRanges = new List<Range>();
 
             foreach (var version in Versions)
             {
@@ -198,6 +213,19 @@ namespace BackupEngine
                 _streamRanges.Add(streamRange);
                 _differentialRanges.Add(diffRange);
             }
+        }
+
+        protected BaseBackupEngine(string targetPath, InstantiationPurpose purpose = InstantiationPurpose.None)
+        {
+            TargetLocation = targetPath;
+            _purpose = purpose;
+            if (!Directory.Exists(targetPath))
+            {
+                if (File.Exists(targetPath))
+                    throw new TargetLocationIsFile(targetPath);
+                Directory.CreateDirectory(targetPath);
+            }
+            SetVersions();
         }
 
         public ulong GetStreamId()
@@ -289,9 +317,13 @@ namespace BackupEngine
 
         public void RestoreBackup()
         {
+            _purpose |= InstantiationPurpose.RestoreBackup;
+            //InitializeRanges();
+
             VersionForRestore latestVersion = null;
             try
             {
+                Console.WriteLine("Initializing structures...");
                 {
                     var versions = new Dictionary<int, VersionForRestore>();
                     var stack = new Stack<int>();
@@ -310,6 +342,7 @@ namespace BackupEngine
 
                     latestVersion = versions[latestVersionNumber];
                     latestVersion.FillDependencies(versions);
+                    latestVersion.SetAllStreamIds();
                 }
 
                 foreach (var fileSystemObject in _oldObjects.Reversed())
@@ -327,7 +360,7 @@ namespace BackupEngine
 
         private void Restore(FileSystemObject fso, VersionForRestore version)
         {
-            version.RestorePath(fso.Path);
+            version.Restore(fso);
         }
 
         FullStream GenerateInitialStream(FileSystemObject fso, HashSet<Guid> knownGuids)
@@ -493,7 +526,7 @@ namespace BackupEngine
             entry.CompressionLevel = InternalCompressionLevelForFile(fso);
         }
 
-        private string GetEntryRoot(int entryId)
+        public static string GetEntryRoot(int entryId)
         {
             return string.Format(@"entries\{0}\", entryId.ToString("00000000"));
         }
@@ -568,6 +601,8 @@ namespace BackupEngine
                     if (!Covered(path))
                         BaseObjects.Add(FileSystemObject.Create(path, settings));
             }
+            for (int i = 0; i < BaseObjects.Count; i++)
+                BaseObjects[i].EntryNumber = i;
         }
 
         private bool Covered(string path)
