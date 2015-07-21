@@ -300,6 +300,17 @@ namespace BackupEngine
             GenerateFirstZip(startTime);
         }
 
+        private void SetOldObjectsDict()
+        {
+            foreach (var fso in _oldObjects)
+            {
+                fso.Iterate(x =>
+                {
+                    _oldObjectsDict[x.Path.SimplifyPath()] = x;
+                });
+            }
+        }
+
         private void UpdateExistingVersion(DateTime startTime)
         {
             ulong firstDiff, firstStream;
@@ -311,13 +322,14 @@ namespace BackupEngine
                 firstDiff = manifest.NextDifferentialChainUniqueId;
                 firstStream = manifest.NextStreamUniqueId;
             }
+            SetOldObjectsDict();
             SetBaseObjects();
             foreach (var baseObject in BaseObjects)
             {
                 baseObject.Iterate(fso =>
                 {
-                    var found = _oldObjects.Select(x => x.Find(fso.Path)).FirstOrDefault();
-                    if (found == null)
+                    FileSystemObject found;
+                    if (!_oldObjectsDict.TryGetValue(fso.Path.SimplifyPath(), out found))
                         return;
                     fso.StreamUniqueId = found.StreamUniqueId;
                 });
@@ -583,6 +595,7 @@ namespace BackupEngine
 
         private bool _baseObjectsSet = false;
         private readonly List<FileSystemObject> _oldObjects = new List<FileSystemObject>();
+        private readonly Dictionary<string, FileSystemObject> _oldObjectsDict = new Dictionary<string, FileSystemObject>();
 
         private IEnumerable<string> GetCurrentSourceLocations()
         {

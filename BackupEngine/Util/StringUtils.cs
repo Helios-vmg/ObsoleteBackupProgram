@@ -98,6 +98,11 @@ namespace BackupEngine.Util
             return ret.ToString();
         }
 
+        public static string SimplifyPath(this string path)
+        {
+            return path.NormalizePath().ToLower();
+        }
+
         public static bool PathMatch(this string a, string b)
         {
             return a.DecomposePath().PathMatch(b.DecomposePath());
