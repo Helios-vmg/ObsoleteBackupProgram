@@ -144,33 +144,8 @@ namespace test1
 
         static void Main(string[] args)
         {
-#if true
-#if true
-            {
-                //var bu = new Backupper(@"c:\test\Backup");
-                //var bu = new Backupper(@"g:\Backup\test\Backup");
-                var bu = new Backupper(@"g:\Backup\000");
-                //bu.Sources.Add(@"C:\Test\mono");
-
-                //bu.PerformBackup();
-                bu.RestoreBackup();
-            }
-#else
-            {
-                var bu = new Backupper(@"g:\Backup\000");
-                bu.Sources.Add(@"f:\Backups\test");
-                bu.PerformBackup();
-            }
-#endif
-#else
-            {
-                var bu = new Backupper(@"g:\Backup\001");
-                bu.Sources.Add(@"f:\Backups\test");
-
-                bu.RestoreBackup();
-                //bu.PerformBackup();
-            }
-#endif
+            var bu = new Backupper(@"c:\test\Backup");
+            bu.RestoreBackup();
         }
     }
 }
