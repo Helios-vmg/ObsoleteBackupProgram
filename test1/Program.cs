@@ -41,6 +41,7 @@ namespace test1
 
         private static readonly HashSet<string> DefaultIgnoredExtensions = new HashSet<string>(StringComparer.InvariantCultureIgnoreCase)
         {
+            /*
             ".img",
             ".sdf",
             ".ipch",
@@ -61,6 +62,7 @@ namespace test1
             ".pack",
             ".zip",
             ".tar",
+            */
         };
 
         private static readonly HashSet<string> DefaultIgnoredNames = new HashSet<string>(StringComparer.InvariantCultureIgnoreCase)
@@ -85,7 +87,7 @@ namespace test1
         {
             followLinkTargets = false;
             if (DefaultIgnoredNames.Contains(o.Name) ||
-                    DefaultIgnoredExtensions.Contains(Path.GetExtension(o.Name)) ||
+                    DefaultIgnoredExtensions.Contains(Path.GetExtension(o.Name)) && !o.IsDirectoryish ||
                     IgnoredPaths.Contains(o.Path))
                 return BackupMode.NoBackup;
             return o.IsDirectoryish ? BackupMode.Directory : BackupMode.Full;
@@ -138,14 +140,8 @@ namespace test1
             }
         }
 
-        [DllImport("BackupEngineNativePart64.dll", CharSet = CharSet.Unicode,
-            CallingConvention = CallingConvention.Cdecl)]
-        public static extern void test_func();
-
         static void Main(string[] args)
         {
-            var bu = new Backupper(@"c:\test\Backup");
-            bu.RestoreBackup();
         }
     }
 }

@@ -37,3 +37,4 @@ bin64/table.dat
 bin64/*.bin
 !bin64/Ionic.Zip.dll
 !bin64/protobuf-net.dll
+bin64/test1.vshost.exe.manifest
