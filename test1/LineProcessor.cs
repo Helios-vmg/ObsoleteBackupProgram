@@ -1,5 +1,4 @@
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.InteropServices;
@@ -38,7 +37,7 @@ namespace test1
             get { return _operationMode == OperationMode.User; }
         }
 
-        public LineProcessor(string[] args)
+        public LineProcessor(IEnumerable<string> args)
         {
             _arguments = new HashSet<string>(args, StringComparer.CurrentCultureIgnoreCase);
             _operationMode = _arguments.Contains("--pipe") ? OperationMode.Pipe : OperationMode.User;
@@ -73,12 +72,11 @@ namespace test1
 
         public void Process()
         {
-            string line;
             while (true)
             {
                 if (UserMode)
                     Console.Write("> ");
-                line = Console.ReadLine();
+                var line = Console.ReadLine();
                 if (line == null)
                     break;
                 var array = CommandLineToArgs(line);
@@ -222,9 +220,9 @@ namespace test1
 
         class TempColor : IDisposable
         {
-            private ConsoleColor _oldColor;
+            private readonly ConsoleColor _oldColor;
 
-            public TempColor(ConsoleColor newColor)
+            protected TempColor(ConsoleColor newColor)
             {
                 _oldColor = Console.ForegroundColor;
                 Console.ForegroundColor = newColor;
