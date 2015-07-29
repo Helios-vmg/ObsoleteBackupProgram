@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 2013
-VisualStudioVersion = 12.0.31101.0
+VisualStudioVersion = 12.0.40629.0
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BackupEngine", "BackupEngine\BackupEngine.csproj", "{5DB48667-A227-4DB9-943D-8472E4C7E85D}"
 	ProjectSection(ProjectDependencies) = postProject
@@ -22,6 +22,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 	ProjectSection(SolutionItems) = preProject
 		Performance1.psess = Performance1.psess
 	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "vss_test", "vss_test\vss_test.vcxproj", "{E76F6342-CEBD-4DD2-A61C-89CC91D5500E}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -70,6 +72,13 @@ Global
 		{B5C6F526-8FCC-4C7A-AAB8-AC368E0289F8}.Debug|x64.Build.0 = Debug|Any CPU
 		{B5C6F526-8FCC-4C7A-AAB8-AC368E0289F8}.Release|Win32.ActiveCfg = Release|Any CPU
 		{B5C6F526-8FCC-4C7A-AAB8-AC368E0289F8}.Release|x64.ActiveCfg = Release|Any CPU
+		{E76F6342-CEBD-4DD2-A61C-89CC91D5500E}.Debug|Win32.ActiveCfg = Debug|Win32
+		{E76F6342-CEBD-4DD2-A61C-89CC91D5500E}.Debug|Win32.Build.0 = Debug|Win32
+		{E76F6342-CEBD-4DD2-A61C-89CC91D5500E}.Debug|x64.ActiveCfg = Debug|Win32
+		{E76F6342-CEBD-4DD2-A61C-89CC91D5500E}.Debug|x64.Build.0 = Debug|Win32
+		{E76F6342-CEBD-4DD2-A61C-89CC91D5500E}.Release|Win32.ActiveCfg = Release|Win32
+		{E76F6342-CEBD-4DD2-A61C-89CC91D5500E}.Release|Win32.Build.0 = Release|Win32
+		{E76F6342-CEBD-4DD2-A61C-89CC91D5500E}.Release|x64.ActiveCfg = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
