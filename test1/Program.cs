@@ -40,39 +40,7 @@ namespace test1
         public List<string> Sources = new List<string>();
         private readonly Reporter _reporter = new Reporter();
 
-        private static readonly HashSet<string> DefaultIgnoredExtensions = new HashSet<string>(StringComparer.InvariantCultureIgnoreCase)
-        {
-            /*
-            ".img",
-            ".sdf",
-            ".ipch",
-            ".pch",
-            ".sqlite",
-            ".lib",
-            ".exe",
-            ".obj",
-            ".bz2",
-            ".a",
-            ".pdb",
-            ".dll",
-            ".7z",
-            ".so",
-            ".o",
-            ".ilk",
-            ".tlog",
-            ".pack",
-            ".zip",
-            ".tar",
-            */
-        };
-
-        private static readonly HashSet<string> DefaultIgnoredNames = new HashSet<string>(StringComparer.InvariantCultureIgnoreCase)
-        {
-            ".svn",
-            ".git",
-        };
-
-        public HashSet<string> IgnoredExtensions = new HashSet<string>(DefaultIgnoredExtensions, StringComparer.InvariantCultureIgnoreCase);
+        public HashSet<string> IgnoredExtensions = new HashSet<string>(StringComparer.InvariantCultureIgnoreCase);
 
         public HashSet<string> IgnoredPaths =
             new HashSet<string>(StringComparer.InvariantCultureIgnoreCase);
@@ -95,8 +63,10 @@ namespace test1
         public override BackupMode GetBackupModeForObject(FileSystemObject o, out bool followLinkTargets)
         {
             followLinkTargets = false;
-            if (DefaultIgnoredNames.Contains(o.Name) ||
-                    DefaultIgnoredExtensions.Contains(Path.GetExtension(o.Name)) && !o.IsDirectoryish ||
+            var nit = NameIgnoreType.None;
+            if (IgnoredNames.TryGetValue(o.Name, out nit) && ((nit & NameIgnoreType.File) != 0 && !o.IsDirectoryish || (nit & NameIgnoreType.Directory) != 0 && o.IsDirectoryish))
+                return BackupMode.NoBackup;
+            if (IgnoredExtensions.Contains(Path.GetExtension(o.Name)) && !o.IsDirectoryish ||
                     IgnoredPaths.Contains(o.Path))
                 return BackupMode.NoBackup;
             return o.IsDirectoryish ? BackupMode.Directory : BackupMode.Full;
@@ -132,6 +102,7 @@ namespace test1
     class ProgramState
     {
         private Backupper _backupper;
+        private int _selectedVersion;
 
         public void ProcessLine(string[] line)
         {
@@ -152,12 +123,65 @@ namespace test1
                 case "restore":
                     ProcessRestore();
                     break;
+                case "select":
+                    ProcessSelect(line);
+                    break;
+                case "show":
+                    ProcessShow(line);
+                    break;
             }
+        }
+
+        private void ProcessShow(string[] line)
+        {
+            switch (line[1].ToLower())
+            {
+                case "dependencies":
+                    ProcessShowDependencies();
+                    break;
+            }
+        }
+
+        void EnsureExistingBackup()
+        {
+            if (_backupper == null)
+                throw new Exception("No backup selected.");
+            if (_backupper.VersionCount == 0)
+                throw new Exception("Backup has never been performed.");
+        }
+
+        private void ProcessShowDependencies()
+        {
+            EnsureExistingBackup();
+            var dependencies = _backupper.GetVersionDependencies(_selectedVersion);
+            Console.WriteLine("Dependencies: " + (dependencies.Count == 0 ? "None." : string.Join(", ", dependencies)));
+        }
+
+        private void ProcessSelect(string[] line)
+        {
+            switch (line[1].ToLower())
+            {
+                case "version":
+                    ProcessSelectVersion(line);
+                    break;
+            }
+        }
+
+        private void ProcessSelectVersion(string[] line)
+        {
+            var versionNumber = Convert.ToInt32(line[2]);
+            EnsureExistingBackup();
+            if (versionNumber < 0)
+                versionNumber = _backupper.VersionCount + versionNumber;
+            if (versionNumber < 0 || versionNumber >= _backupper.VersionCount)
+                throw new Exception("No such version in backup.");
+            _selectedVersion = versionNumber;
         }
 
         public void ProcessOpen(string[] line)
         {
             _backupper = new Backupper(line[1]);
+            _selectedVersion = _backupper.VersionCount - 1;
         }
 
         private void ProcessAdd(string[] line)
@@ -176,7 +200,7 @@ namespace test1
                     ProcessExcludePath(line);
                     break;
                 case "name":
-                    ProcessExcludePath(line);
+                    ProcessExcludeName(line);
                     break;
             }
         }

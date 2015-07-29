@@ -170,6 +170,16 @@ namespace BackupEngine
                 return Serializer.Deserialize<List<BackupStream>>(stream);
         }
 
+        public List<int> GetVersionDependencies(int version)
+        {
+            Debug.Assert(version >= 0 && version < VersionCount);
+            var versionPath = GetVersionPath(version);
+            VersionManifest manifest;
+            using (var zip = new ZipFile(versionPath))
+                manifest = OpenVersionManifest(zip, versionPath);
+            return manifest.VersionDependencies;
+        }
+
         private void InitializeRanges()
         {
             if ((_purpose & (InstantiationPurpose.RestoreBackup | InstantiationPurpose.TestBackup)) == 0 || _streamRanges != null)
