@@ -107,6 +107,16 @@ namespace BackupEngine
 
         protected List<int> Versions = new List<int>();
 
+        public IEnumerable<int> GetVersions()
+        {
+            return Versions;
+        }
+
+        public bool VersionExists(int version)
+        {
+            return Versions.Contains(version);
+        }
+
         internal string GetVersionPath(int version)
         {
             return Path.Combine(TargetLocation, string.Format("version{0}.zip", version.ToString("00000000")));
@@ -172,12 +182,22 @@ namespace BackupEngine
 
         public List<int> GetVersionDependencies(int version)
         {
-            Debug.Assert(version >= 0 && version < VersionCount);
             var versionPath = GetVersionPath(version);
             VersionManifest manifest;
             using (var zip = new ZipFile(versionPath))
                 manifest = OpenVersionManifest(zip, versionPath);
             return manifest.VersionDependencies;
+        }
+
+        public IEnumerable<FileSystemObject> GetEntries(int version)
+        {
+            var versionPath = GetVersionPath(version);
+            using (var zip = new ZipFile(versionPath))
+            {
+                var manifest = OpenVersionManifest(zip, versionPath);
+                for (int i = 0; i < manifest.EntryCount; i++)
+                    yield return OpenBaseObject(zip, i);
+            }
         }
 
         private void InitializeRanges()
