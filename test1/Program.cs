@@ -16,7 +16,6 @@ using BackupEngine.Util;
 
 namespace test1
 {
-#if true
     class Reporter : IErrorReporter
     {
         public bool ReportError(Exception e, string context = null)
@@ -35,7 +34,7 @@ namespace test1
         }
     }
 
-    class Backupper : BaseBackupEngine
+    class BackupSystem : BaseBackupEngine
     {
         public List<string> Sources = new List<string>();
         private readonly Reporter _reporter = new Reporter();
@@ -56,7 +55,7 @@ namespace test1
 
         public Dictionary<string, NameIgnoreType> IgnoredNames = new Dictionary<string, NameIgnoreType>(StringComparer.InvariantCultureIgnoreCase);
 
-        public Backupper(string targetPath) : base(targetPath)
+        public BackupSystem(string targetPath) : base(targetPath)
         {
         }
 
@@ -97,11 +96,10 @@ namespace test1
             get { return 0; }
         }
     }
-#endif
 
     class ProgramState
     {
-        private Backupper _backupper;
+        private BackupSystem _backupSystem;
         private int _selectedVersion;
 
         public void ProcessLine(string[] line)
@@ -144,16 +142,16 @@ namespace test1
 
         void EnsureExistingBackup()
         {
-            if (_backupper == null)
+            if (_backupSystem == null)
                 throw new Exception("No backup selected.");
-            if (_backupper.VersionCount == 0)
+            if (_backupSystem.VersionCount == 0)
                 throw new Exception("Backup has never been performed.");
         }
 
         private void ProcessShowDependencies()
         {
             EnsureExistingBackup();
-            var dependencies = _backupper.GetVersionDependencies(_selectedVersion);
+            var dependencies = _backupSystem.GetVersionDependencies(_selectedVersion);
             Console.WriteLine("Dependencies: " + (dependencies.Count == 0 ? "None." : string.Join(", ", dependencies)));
         }
 
@@ -172,21 +170,21 @@ namespace test1
             var versionNumber = Convert.ToInt32(line[2]);
             EnsureExistingBackup();
             if (versionNumber < 0)
-                versionNumber = _backupper.VersionCount + versionNumber;
-            if (versionNumber < 0 || versionNumber >= _backupper.VersionCount)
+                versionNumber = _backupSystem.VersionCount + versionNumber;
+            if (versionNumber < 0 || versionNumber >= _backupSystem.VersionCount)
                 throw new Exception("No such version in backup.");
             _selectedVersion = versionNumber;
         }
 
         public void ProcessOpen(string[] line)
         {
-            _backupper = new Backupper(line[1]);
-            _selectedVersion = _backupper.VersionCount - 1;
+            _backupSystem = new BackupSystem(line[1]);
+            _selectedVersion = _backupSystem.VersionCount - 1;
         }
 
         private void ProcessAdd(string[] line)
         {
-            _backupper.Sources.Add(line[1]);
+            _backupSystem.Sources.Add(line[1]);
         }
 
         public void ProcessExclude(string[] line)
@@ -207,12 +205,12 @@ namespace test1
 
         public void ProcessExcludeExtension(string[] line)
         {
-            _backupper.IgnoredExtensions.Add(line[2]);
+            _backupSystem.IgnoredExtensions.Add(line[2]);
         }
 
         public void ProcessExcludePath(string[] line)
         {
-            _backupper.IgnoredPaths.Add(line[2]);
+            _backupSystem.IgnoredPaths.Add(line[2]);
         }
 
         public void ProcessExcludeName(string[] line)
@@ -233,27 +231,27 @@ namespace test1
 
         public void ProcessExcludeNameFiles(string[] line)
         {
-            _backupper.IgnoredNames[line[3]] = Backupper.NameIgnoreType.File;
+            _backupSystem.IgnoredNames[line[3]] = BackupSystem.NameIgnoreType.File;
         }
 
         public void ProcessExcludeNameDirs(string[] line)
         {
-            _backupper.IgnoredNames[line[3]] = Backupper.NameIgnoreType.Directory;
+            _backupSystem.IgnoredNames[line[3]] = BackupSystem.NameIgnoreType.Directory;
         }
 
         public void ProcessExcludeNameAll(string[] line)
         {
-            _backupper.IgnoredNames[line[3]] = Backupper.NameIgnoreType.All;
+            _backupSystem.IgnoredNames[line[3]] = BackupSystem.NameIgnoreType.All;
         }
 
         public void ProcessBackup()
         {
-            _backupper.PerformBackup();
+            _backupSystem.PerformBackup();
         }
 
         public void ProcessRestore()
         {
-            _backupper.RestoreBackup();
+            _backupSystem.RestoreBackup();
         }
     }
 
