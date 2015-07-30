@@ -34,6 +34,19 @@ public:
 	}
 };
 
+class SnapshotProperties{
+	VSS_SNAPSHOT_PROP props;
+public:
+	SnapshotProperties(const VSS_SNAPSHOT_PROP &props) : props(props){
+	}
+	~SnapshotProperties(){
+		VssFreeSnapshotProperties(&this->props);
+	}
+	VSS_SNAPSHOT_PROP get_properties() const{
+		return this->props;
+	}
+};
+
 class BackupComponents{
 	IVssBackupComponents *vbc;
 public:
@@ -78,10 +91,18 @@ public:
 		return ret;
 	}
 
-	void add_to_snapshot_set(VSS_ID snapshot_set_id){
-		auto hres = this->vbc->AddToSnapshotSet(L"C:\\", GUID_NULL, &snapshot_set_id);
+	VSS_ID add_to_snapshot_set(){
+		VSS_ID ret;
+		auto hres = this->vbc->AddToSnapshotSet(L"F:\\", GUID_NULL, &ret);
 		if (FAILED(hres))
 			throw HresultException("IVssBackupComponents::AddToSnapshotSet", hres);
+		return ret;
+	}
+
+	void set_backup_state(){
+		auto hres = this->vbc->SetBackupState(false, true, VSS_BT_COPY);
+		if (FAILED(hres))
+			throw HresultException("IVssBackupComponents::SetBackupState", hres);
 	}
 
 	void prepare_for_backup(){
@@ -131,6 +152,14 @@ public:
 		auto hres = this->vbc->DeleteSnapshots(snapshot_set_id, VSS_OBJECT_SNAPSHOT_SET, true, &deleted_snapshots, &undeleted);
 		if (FAILED(hres))
 			throw HresultException("IVssBackupComponents::DeleteSnapshots", hres);
+	}
+
+	std::shared_ptr<SnapshotProperties> get_snapshot_properties(const VSS_ID &snapshot_set_id){
+		VSS_SNAPSHOT_PROP props;
+		auto hres = this->vbc->GetSnapshotProperties(snapshot_set_id, &props);
+		if (FAILED(hres))
+			throw HresultException("IVssBackupComponents::SnapshotProperties", hres);
+		return std::shared_ptr<SnapshotProperties>(new SnapshotProperties(props));
 	}
 };
 
@@ -255,6 +284,23 @@ std::uint32_t calculate_crc32(const char *path){
 	return crc32.Result();
 }
 
+void coinitialize(){
+	auto hres = CoInitialize(nullptr);
+	if (FAILED(hres))
+		throw HresultException("CoInitialize", hres);
+}
+
+std::wostream &operator<<(std::wostream &stream, const VSS_ID &guid){
+	LPOLESTR temp;
+	auto hres = StringFromCLSID(guid, &temp);
+	if (FAILED(hres))
+		std::cerr << "StringFromCLSID() failed: " << std::hex << std::setw(8) << std::setfill('0') << hres << std::endl;
+	else
+		stream << temp;
+	CoTaskMemFree(temp);
+	return stream;
+}
+
 int main(int argc, char **argv){
 	if (argc < 2)
 		return 0;
@@ -263,24 +309,53 @@ int main(int argc, char **argv){
 	if (argc < 3)
 		return 0;
 	try{
+		coinitialize();
 		BackupComponents comps;
 		comps.initialize_for_backup();
 		const auto context = VSS_CTX_BACKUP | VSS_CTX_CLIENT_ACCESSIBLE_WRITERS | VSS_CTX_APP_ROLLBACK;
 		auto metadata = comps.gather_writer_metadata();
 		comps.set_context(context);
 		auto snapshot_set_id = comps.start_snapshot_set();
-		comps.add_to_snapshot_set(snapshot_set_id);
+		std::wcout << "Snapshot ID: " << snapshot_set_id << std::endl;
+		auto shadow_id = comps.add_to_snapshot_set();
+		std::wcout << "Shadow ID: " << shadow_id << std::endl;
+		comps.set_backup_state();
 		comps.prepare_for_backup();
 		auto status = comps.gather_writer_status();
 		comps.do_snapshot_set();
-		
-		auto vss_read_result = calculate_crc32(argv[1]);
-		std::cout << "VSS read: " << std::hex << std::setw(8) << std::setfill('0') << vss_read_result << std::endl;
+
+		//auto vss_read_result = calculate_crc32(argv[1]);
+		//std::cout << "VSS read: " << std::hex << std::setw(8) << std::setfill('0') << vss_read_result << std::endl;
+		{
+			try{
+				auto props = comps.get_snapshot_properties(shadow_id);
+				auto props2 = props->get_properties();
+				std::wcout
+#define PRINT(x) << #x " " << x << std::endl
+#define PRINT2(x) << #x " " << (x ? x : L"NULL") << std::endl
+					PRINT(props2.m_SnapshotId)
+					PRINT(props2.m_SnapshotSetId)
+					PRINT(props2.m_lSnapshotsCount)
+					PRINT2(props2.m_pwszSnapshotDeviceObject)
+					PRINT2(props2.m_pwszOriginalVolumeName)
+					PRINT2(props2.m_pwszOriginatingMachine)
+					PRINT2(props2.m_pwszServiceMachine)
+					PRINT2(props2.m_pwszExposedName)
+					PRINT2(props2.m_pwszExposedPath)
+					PRINT(props2.m_ProviderId)
+					PRINT(props2.m_lSnapshotAttributes)
+					PRINT(props2.m_tsCreationTimestamp)
+					PRINT(props2.m_eStatus)
+					;
+			}catch (HresultException &e){
+				std::cerr << e.context << "() failed with error: " << std::hex << std::setw(8) << std::setfill('0') << e.hres << std::endl;
+			}
+		}
 
 		status = comps.gather_writer_status();
 		comps.backup_complete();
-		comps.delete_snapshot_set(snapshot_set_id);
+		//comps.delete_snapshot_set(snapshot_set_id);
 	}catch (HresultException &e){
-		std::cerr << e.context << "() failed with error: " << e.hres << std::endl;
+		std::cerr << e.context << "() failed with error: " << std::hex << std::setw(8) << std::setfill('0') << e.hres << std::endl;
 	}
 }

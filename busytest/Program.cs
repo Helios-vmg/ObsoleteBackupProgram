@@ -11,14 +11,12 @@ namespace busytest
     {
         static void Main(string[] args)
         {
-            const string path = @"g:\Backup\test\Backup.7z";
+            var path = args[0];
             Func<Stream> f = () => new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.None);
             using (var file = f())
             {
-                using (var file2 = f())
-                {
-                    
-                }
+                Console.WriteLine("File " + path + " locked.");
+                Console.ReadLine();
             }
         }
     }
