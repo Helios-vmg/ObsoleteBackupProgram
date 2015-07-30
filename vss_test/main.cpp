@@ -367,7 +367,7 @@ int main(int argc, char **argv){
 
 		status = comps.gather_writer_status();
 		comps.backup_complete();
-		//comps.delete_snapshot_set(snapshot_set_id);
+		comps.delete_snapshot_set(snapshot_set_id);
 	}catch (HresultException &e){
 		std::cerr << e.context << "() failed with error: " << std::hex << std::setw(8) << std::setfill('0') << e.hres << std::endl;
 	}

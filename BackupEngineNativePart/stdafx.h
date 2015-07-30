@@ -21,6 +21,10 @@
 #include <deque>
 #include <utility>
 #include <cassert>
+#include <vss.h>
+#include <vswriter.h>
+#include <vsbackup.h>
+
 
 #include "SimpleTypes.h"
 #include "GlobalConstants.h"
