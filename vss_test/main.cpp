@@ -7,6 +7,7 @@
 #include <memory>
 #include <cstdint>
 #include <iomanip>
+#include <string>
 
 #pragma comment(lib, "vssapi.lib")
 
@@ -347,6 +348,18 @@ int main(int argc, char **argv){
 					PRINT(props2.m_tsCreationTimestamp)
 					PRINT(props2.m_eStatus)
 					;
+
+				{
+					auto wstr = props2.m_pwszSnapshotDeviceObject;
+					auto length = wcslen(wstr);
+					std::string path;
+					path.resize(length);
+					std::copy(wstr, wstr + length, path.begin());
+					path += argv[1];
+					std::cout << path << std::endl;
+					auto vss_read_result = calculate_crc32(path.c_str());
+					std::cout << "VSS read: " << std::hex << std::setw(8) << std::setfill('0') << vss_read_result << std::endl;
+				}
 			}catch (HresultException &e){
 				std::cerr << e.context << "() failed with error: " << std::hex << std::setw(8) << std::setfill('0') << e.hres << std::endl;
 			}
