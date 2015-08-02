@@ -184,6 +184,7 @@
       </PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="FileComparer.cpp" />
+    <ClCompile Include="fileops2.cpp" />
     <ClCompile Include="MiscFunctions.cpp" />
     <ClCompile Include="Rdiff.cpp" />
     <ClCompile Include="RollingChecksum.cpp" />

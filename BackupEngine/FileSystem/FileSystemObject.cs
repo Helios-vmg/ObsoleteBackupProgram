@@ -4,9 +4,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text;
-using System.Threading.Tasks;
 using BackupEngine.FileSystem.FileSystemObjects;
-using BackupEngine.Serialization;
 using BackupEngine.Util;
 using ProtoBuf;
 
@@ -287,7 +285,7 @@ namespace BackupEngine.FileSystem
         {
             try
             {
-                ArchiveFlag = (File.GetAttributes(path) & FileAttributes.Archive) == FileAttributes.Archive;
+                ArchiveFlag = (Alphaleonis.Win32.Filesystem.File.GetAttributes(path) & FileAttributes.Archive) == FileAttributes.Archive;
             }
             catch (Exception e)
             {
@@ -297,7 +295,7 @@ namespace BackupEngine.FileSystem
             }
             try
             {
-                ModificationTime = File.GetLastWriteTimeUtc(path);
+                ModificationTime = Alphaleonis.Win32.Filesystem.File.GetLastWriteTimeUtc(path);
             }
             catch (Exception e)
             {
@@ -351,7 +349,7 @@ namespace BackupEngine.FileSystem
 
         public Stream OpenForExclusiveRead()
         {
-            return new FileStream(Path, FileMode.Open, FileAccess.Read, FileShare.None);
+            return Alphaleonis.Win32.Filesystem.File.Open(Path, FileMode.Open, FileAccess.Read, FileShare.None);
         }
 
         public virtual void SetUniqueIds(BaseBackupEngine backup)

@@ -21,7 +21,7 @@ namespace BackupEngine.FileSystem.FileSystemObjects
         {
             try
             {
-                return Directory.EnumerateFileSystemEntries(path).ToArray();
+                return Alphaleonis.Win32.Filesystem.Directory.EnumerateFileSystemEntries(path).ToArray();
             }
             catch (Exception e)
             {

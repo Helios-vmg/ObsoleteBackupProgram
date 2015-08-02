@@ -68,7 +68,7 @@ namespace BackupEngine.FileSystem.FileSystemObjects
                 return digest;
             try
             {
-                using (var file = new FileStream(Path, FileMode.Open, FileAccess.Read, FileShare.Read))
+                using (var file = Alphaleonis.Win32.Filesystem.File.Open(Path, FileMode.Open, FileAccess.Read, FileShare.Read))
                 {
                     switch (type)
                     {
@@ -126,9 +126,9 @@ namespace BackupEngine.FileSystem.FileSystemObjects
         public override void DeleteExisting(string basePath = null)
         {
             var path = PathOverrideBaseWeak(basePath);
-            if (!File.Exists(path))
+            if (!Alphaleonis.Win32.Filesystem.File.Exists(path))
                 return;
-            File.Delete(path);
+            Alphaleonis.Win32.Filesystem.File.Delete(path);
         }
     }
 
@@ -164,7 +164,7 @@ namespace BackupEngine.FileSystem.FileSystemObjects
         public override void Restore(Stream stream, string basePath = null)
         {
             var path = PathOverrideBaseWeak(basePath);
-            using (var file = new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.None))
+            using (var file = Alphaleonis.Win32.Filesystem.File.Open(path, FileMode.Create, FileAccess.Write, FileShare.None))
                 stream.CopyTo(file);
         }
     }

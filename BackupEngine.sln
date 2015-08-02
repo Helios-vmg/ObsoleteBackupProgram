@@ -16,13 +16,6 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "rsync_test", "rsync_test\rs
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "rsync_test2", "rsync_test2\rsync_test2.vcxproj", "{5C08478E-5852-4AC4-A205-5C21C9059CBE}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "busytest", "busytest\busytest.csproj", "{B5C6F526-8FCC-4C7A-AAB8-AC368E0289F8}"
-EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{858A6F85-C005-4236-8FC6-BE61A2CFA464}"
-	ProjectSection(SolutionItems) = preProject
-		Performance1.psess = Performance1.psess
-	EndProjectSection
-EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "vss_test", "vss_test\vss_test.vcxproj", "{E76F6342-CEBD-4DD2-A61C-89CC91D5500E}"
 EndProject
 Global
@@ -51,10 +44,6 @@ Global
 		{5C08478E-5852-4AC4-A205-5C21C9059CBE}.Debug|x64.Build.0 = Debug|x64
 		{5C08478E-5852-4AC4-A205-5C21C9059CBE}.Release|x64.ActiveCfg = Release|x64
 		{5C08478E-5852-4AC4-A205-5C21C9059CBE}.Release|x64.Build.0 = Release|x64
-		{B5C6F526-8FCC-4C7A-AAB8-AC368E0289F8}.Debug|x64.ActiveCfg = Debug|Any CPU
-		{B5C6F526-8FCC-4C7A-AAB8-AC368E0289F8}.Debug|x64.Build.0 = Debug|Any CPU
-		{B5C6F526-8FCC-4C7A-AAB8-AC368E0289F8}.Release|x64.ActiveCfg = Release|Any CPU
-		{B5C6F526-8FCC-4C7A-AAB8-AC368E0289F8}.Release|x64.Build.0 = Release|Any CPU
 		{E76F6342-CEBD-4DD2-A61C-89CC91D5500E}.Debug|x64.ActiveCfg = Debug|x64
 		{E76F6342-CEBD-4DD2-A61C-89CC91D5500E}.Debug|x64.Build.0 = Debug|x64
 		{E76F6342-CEBD-4DD2-A61C-89CC91D5500E}.Release|x64.ActiveCfg = Release|x64

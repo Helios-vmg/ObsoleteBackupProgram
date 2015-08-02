@@ -25,6 +25,12 @@
     <Filter Include="Source Files\VSS">
       <UniqueIdentifier>{25df6704-cd12-42c5-92ec-2d80cdf51656}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Header Files\fileops2">
+      <UniqueIdentifier>{bf2c1982-c919-4dd8-886e-d927a033c316}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\fileops2">
+      <UniqueIdentifier>{4740314d-32eb-48d7-ae74-63947a18efcf}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="stdafx.h">
@@ -118,6 +124,9 @@
     </ClCompile>
     <ClCompile Include="vss.cpp">
       <Filter>Source Files\VSS</Filter>
+    </ClCompile>
+    <ClCompile Include="fileops2.cpp">
+      <Filter>Source Files\fileops2</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>

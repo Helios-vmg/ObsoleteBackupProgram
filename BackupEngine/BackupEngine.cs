@@ -251,7 +251,7 @@ namespace BackupEngine
             _purpose = purpose;
             if (!Directory.Exists(targetPath))
             {
-                if (File.Exists(targetPath))
+                if (Alphaleonis.Win32.Filesystem.File.Exists(targetPath))
                     throw new TargetLocationIsFile(targetPath);
                 Directory.CreateDirectory(targetPath);
             }
@@ -475,12 +475,12 @@ namespace BackupEngine
             Console.WriteLine("Hashing result .zip...");
 
             byte[] digest;
-            using (var file = new FileStream(zipPath, FileMode.Open, FileAccess.Read, FileShare.Read))
+            using (var file = Alphaleonis.Win32.Filesystem.File.Open(zipPath, FileMode.Open, FileAccess.Read, FileShare.Read))
             {
                 digest = SHA256.Create().ComputeHash(file);
             }
 
-            using (var file = new StreamWriter(hashPath))
+            using (var file = new StreamWriter(Alphaleonis.Win32.Filesystem.File.OpenWrite(hashPath)))
             {
                 file.Write(Convert.ToBase64String(digest));
             }

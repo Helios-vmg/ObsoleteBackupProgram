@@ -25,6 +25,5 @@
 #include <vswriter.h>
 #include <vsbackup.h>
 
-
 #include "SimpleTypes.h"
 #include "GlobalConstants.h"

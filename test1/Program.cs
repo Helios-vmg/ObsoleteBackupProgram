@@ -104,6 +104,7 @@ namespace test1
 
         static void Main(string[] args)
         {
+#if false
             IntPtr handle = IntPtr.Zero;
             Console.WriteLine("create_snapshot()");
             var error = create_snapshot(out handle);
@@ -189,9 +190,10 @@ namespace test1
                 //Directory.Delete(basePath, true);
             }
 
-
-            //var processor = new LineProcessor(args);
-            //processor.Process();
+#else
+            var processor = new LineProcessor(args);
+            processor.Process();
+#endif
         }
 
     }
