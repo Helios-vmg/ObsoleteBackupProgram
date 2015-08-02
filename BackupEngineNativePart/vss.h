@@ -3,6 +3,7 @@
 class VssShadow{
 	VSS_ID snapshot_set_id;
 	VSS_ID id;
+public:
 	long snapshots_count;
 	std::wstring snapshot_device_object,
 		original_volume_name,
@@ -14,13 +15,13 @@ class VssShadow{
 	long snapshot_attributes;
 	VSS_TIMESTAMP created_at;
 	VSS_SNAPSHOT_STATE status;
-public:
 	VssShadow(const VSS_ID &snapshot_set_id, const VSS_ID &shadow_id):
 		snapshot_set_id(snapshot_set_id),
 		id(shadow_id){}
 	VSS_ID get_id() const{
 		return this->id;
 	}
+
 };
 
 class SnapshotProperties{
@@ -37,12 +38,15 @@ public:
 	void add_shadow_id(const VSS_ID &shadow_id){
 		this->shadows.push_back(VssShadow(this->snapshot_set_id, shadow_id));
 	}
-	std::vector<VSS_ID> get_shadow_ids() const;
+	std::vector<VssShadow> &get_shadows(){
+		return this->shadows;
+	}
 };
 
 class HresultException : public std::exception{
 	std::string message;
 public:
+	HRESULT hres;
 	HresultException(const char *context, HRESULT hres);
 	const char *what() const override{
 		return this->message.c_str();
@@ -62,7 +66,7 @@ class VssSnapshot{
 	SnapshotProperties props;
 	IVssBackupComponents *vbc;
 
-	void populate_properties();
+	HRESULT populate_properties();
 public:
 	VssSnapshot();
 	~VssSnapshot();
@@ -72,7 +76,7 @@ public:
 	void push_target(const std::wstring &target);
 	//Requirement: this->state == VssState::PushingTargets && 
 	//             this->targets.size() >= 1
-	void do_snapshot(HRESULT &properties_result);
+	void do_snapshot(HRESULT &properties_result, const wchar_t *expose_base);
 	//Requirement: this->state == VssState::SnapshotPerformed
 	const SnapshotProperties &get_snapshot_properties() const{
 		return this->props;

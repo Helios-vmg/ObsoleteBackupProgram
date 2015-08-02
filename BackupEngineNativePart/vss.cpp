@@ -1,29 +1,24 @@
 #include "stdafx.h"
 #include "vss.h"
+#include "ExportedFunctions.h"
 #include <comdef.h>
 
-HresultException::HresultException(const char *context, HRESULT hres){
+HresultException::HresultException(const char *context, HRESULT hres):
+		hres(hres){
 	std::stringstream stream;
 	stream << context << " failed with error 0x"
 		<< std::hex << std::setw(8) << std::setfill('0') << hres
 		<< " (";
 	{
 		_com_error error(hres);
-		for (auto p = error.ErrorMessage(); p; p++)
-			stream << ((unsigned)p < 0x80 ? (char)p : '?');
+		for (auto p = error.ErrorMessage(); *p; p++)
+			stream << ((unsigned)*p < 0x80 ? (char)*p : '?');
 	}
 	stream << ")";
+	std::cerr << stream.str() << std::endl;
 }
 
 SnapshotProperties::SnapshotProperties(){
-}
-
-std::vector<VSS_ID> SnapshotProperties::get_shadow_ids() const{
-	std::vector<VSS_ID> ret;
-	ret.reserve(this->shadows.size());
-	for (const auto &shadow : this->shadows)
-		ret.push_back(shadow.get_id());
-	return ret;
 }
 
 VssSnapshot::VssSnapshot(){
@@ -58,6 +53,14 @@ public:
 	}
 };
 
+std::wstring to_wstring(const VSS_ID &guid){
+	LPOLESTR temp;
+	auto hres = StringFromCLSID(guid, &temp);
+	std::wstring ret = temp;
+	CoTaskMemFree(temp);
+	return ret;
+}
+
 void VssSnapshot::begin(){
 	if (this->state != VssState::Initial)
 		throw IncorrectUsageException();
@@ -72,7 +75,7 @@ void VssSnapshot::begin(){
 	CALL_HRESULT_FUNCTION(this->vbc->InitializeForBackup, ());
 	CALL_ASYNC_FUNCTION(this->vbc->GatherWriterMetadata);
 	CALL_HRESULT_FUNCTION(this->vbc->FreeWriterMetadata, ());
-	const auto context = VSS_CTX_BACKUP | VSS_CTX_CLIENT_ACCESSIBLE_WRITERS | VSS_CTX_APP_ROLLBACK;
+	const auto context = VSS_CTX_APP_ROLLBACK;
 	CALL_HRESULT_FUNCTION(this->vbc->SetContext, (context));
 	VSS_ID snapshot_set_id;
 	CALL_HRESULT_FUNCTION(this->vbc->StartSnapshotSet, (&snapshot_set_id));
@@ -108,7 +111,7 @@ public:
 	}
 };
 
-void VssSnapshot::do_snapshot(HRESULT &properties_result){
+void VssSnapshot::do_snapshot(HRESULT &properties_result, const wchar_t *expose_base){
 	if (this->state != VssState::PushingTargets)
 		throw IncorrectUsageException();
 
@@ -120,42 +123,136 @@ void VssSnapshot::do_snapshot(HRESULT &properties_result){
 	CALL_HRESULT_FUNCTION(this->vbc->FreeWriterStatus, ());
 	CALL_ASYNC_FUNCTION(this->vbc->DoSnapshotSet);
 
+	/*
+	std::wstring base = expose_base;
+	int i = 0;
+	for (auto &shadow : this->props.get_shadows()){
+		auto &id = shadow.get_id();
+		wchar_t *temp;
+		std::wstringstream stream;
+		stream << base << '\\' << i++ << '\\';
+		auto path = stream.str();
+		CreateDirectoryW(path.c_str(), nullptr);
+		CALL_HRESULT_FUNCTION(this->vbc->ExposeSnapshot, (id, nullptr, VSS_VOLSNAP_ATTR_EXPOSED_LOCALLY, &path[0], &temp));
+	}
+	*/
+
 	this->state = VssState::SnapshotPerformed;
 
-	this->populate_properties();
+	properties_result = this->populate_properties();
 }
 
-void VssSnapshot::populate_properties(){
-	auto shadow_ids = this->props.get_shadow_ids();
+static std::wstring to_wstring(const VSS_PWSZ &s){
+	return !s ? std::wstring() : s;
+}
 
-	for (auto &shadow_id : shadow_ids){
+HRESULT VssSnapshot::populate_properties(){
+	auto &shadows = this->props.get_shadows();
+
+	for (auto &shadow : shadows){
 		VSS_SNAPSHOT_PROP props;
-		auto hres = this->vbc->GetSnapshotProperties(this->props.get_snapshot_set_id(), &props);
+		auto hres = this->vbc->GetSnapshotProperties(shadow.get_id(), &props);
 		if (FAILED(hres))
-			throw HresultException("IVssBackupComponents::SnapshotProperties", hres);
+			return hres;
 		RaiiSnapshotProperties raii_props(props);
-
+		shadow.snapshots_count        = props.m_lSnapshotsCount;
+		shadow.snapshot_device_object = to_wstring(props.m_pwszSnapshotDeviceObject);
+		shadow.original_volume_name   = to_wstring(props.m_pwszOriginalVolumeName);
+		shadow.originating_machine    = to_wstring(props.m_pwszOriginatingMachine);
+		shadow.service_machine        = to_wstring(props.m_pwszServiceMachine);
+		shadow.exposed_name           = to_wstring(props.m_pwszExposedName);
+		shadow.exposed_path           = to_wstring(props.m_pwszExposedPath);
+		shadow.provider_id            = props.m_ProviderId;
+		shadow.snapshot_attributes    = props.m_lSnapshotAttributes;
+		shadow.created_at             = props.m_tsCreationTimestamp;
+		shadow.status                 = props.m_eStatus;
 	}
+	return S_OK;
 }
 
 VssSnapshot::~VssSnapshot(){
 	if (this->state == VssState::SnapshotPerformed){
-		CALL_ASYNC_FUNCTION(this->vbc->GatherWriterStatus);
-		CALL_HRESULT_FUNCTION(this->vbc->FreeWriterStatus, ());
-		CALL_ASYNC_FUNCTION(this->vbc->BackupComplete);
-		LONG deleted_snapshots;
-		VSS_ID undeleted;
-		CALL_HRESULT_FUNCTION(
-			this->vbc->DeleteSnapshots,
-			(
-				this->props.get_snapshot_set_id(),
-				VSS_OBJECT_SNAPSHOT_SET,
-				true,
-				&deleted_snapshots,
-				&undeleted
-			)
-		);
+		try{
+			CALL_ASYNC_FUNCTION(this->vbc->GatherWriterStatus);
+			CALL_HRESULT_FUNCTION(this->vbc->FreeWriterStatus, ());
+			CALL_ASYNC_FUNCTION(this->vbc->BackupComplete);
+			LONG deleted_snapshots;
+			VSS_ID undeleted;
+			CALL_HRESULT_FUNCTION(
+				this->vbc->DeleteSnapshots,
+				(
+					this->props.get_snapshot_set_id(),
+					VSS_OBJECT_SNAPSHOT_SET,
+					true,
+					&deleted_snapshots,
+					&undeleted
+				)
+			);
+		}catch (HresultException &){
+		}
 	}
 	if (this->vbc)
 		this->vbc->Release();
+}
+
+EXPORT_THIS int create_snapshot(void **object){
+	VssSnapshot *ret;
+	try{
+		ret = new VssSnapshot;
+		ret->begin();
+	}catch (HresultException &hres){
+		return hres.hres;
+	}
+	*object = ret;
+	return S_OK;
+}
+
+EXPORT_THIS int add_volume_to_snapshot(void *object, const wchar_t *volume){
+	VssSnapshot *snapshot = (VssSnapshot *)object;
+	try{
+		snapshot->push_target(volume);
+	}catch (HresultException &hres){
+		return hres.hres;
+	}
+	return S_OK;
+}
+
+EXPORT_THIS int do_snapshot(void *object, const wchar_t *base_path){
+	VssSnapshot *snapshot = (VssSnapshot *)object;
+	HRESULT properties_result;
+	try{
+		snapshot->do_snapshot(properties_result, base_path);
+	} catch (HresultException &hres){
+		return hres.hres;
+	}
+	return properties_result;
+}
+
+EXPORT_THIS void get_snapshot_properties(void *object, GUID *snapshot_id, get_snapshot_properties_callback callback){
+	VssSnapshot *snapshot = (VssSnapshot *)object;
+	auto props = snapshot->get_snapshot_properties();
+	*snapshot_id = props.get_snapshot_set_id();
+	auto &shadows = props.get_shadows();
+	for (auto &shadow : shadows){
+		callback(
+			shadow.get_id(),
+			shadow.snapshots_count,
+			shadow.snapshot_device_object.c_str(),
+			shadow.original_volume_name.c_str(),
+			shadow.originating_machine.c_str(),
+			shadow.service_machine.c_str(),
+			shadow.exposed_name.c_str(),
+			shadow.exposed_path.c_str(),
+			shadow.provider_id,
+			shadow.snapshot_attributes,
+			shadow.created_at,
+			shadow.status
+		);
+	}
+}
+
+EXPORT_THIS int release_snapshot(void *object){
+	VssSnapshot *snapshot = (VssSnapshot *)object;
+	delete snapshot;
+	return 0;
 }

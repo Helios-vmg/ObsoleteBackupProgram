@@ -110,7 +110,7 @@ int internal_get_reparse_point_target(const wchar_t *path, unsigned long *unreco
 	return 0;
 }
 
-EXPORT_THIS int get_reparse_point_target(const wchar_t *_path, unsigned long *unrecognized, callback f){
+EXPORT_THIS int get_reparse_point_target(const wchar_t *_path, unsigned long *unrecognized, string_callback_t f){
 	*unrecognized = 0;
 	auto path = path_from_string(_path);
 	std::wstring result;
@@ -189,7 +189,7 @@ EXPORT_THIS unsigned get_file_system_object_type(const wchar_t *_path){
 	return (unsigned)(is_symlink ? FileSystemObjectType::DirectorySymlink : FileSystemObjectType::Junction);
 }
 
-EXPORT_THIS int list_all_hardlinks(const wchar_t *_path, callback f){
+EXPORT_THIS int list_all_hardlinks(const wchar_t *_path, string_callback_t f){
 	auto path = path_from_string(_path);
 	HANDLE handle;
 	const DWORD default_size = 1 << 10;
@@ -281,4 +281,39 @@ EXPORT_THIS int create_hardlink(const wchar_t *_link_location, const wchar_t *_e
 	if (CreateHardLinkW(link_location.c_str(), existing_file.c_str(), nullptr))
 		return 0;
 	return GetLastError();
+}
+
+EXPORT_THIS int enumerate_volumes(enumerate_volumes_callback_t cb){
+	std::vector<wchar_t> buffer(64);
+	HANDLE handle;
+	while (true){
+		handle = FindFirstVolumeW(&buffer[0], (DWORD)buffer.size());
+		if (handle != INVALID_HANDLE_VALUE)
+			break;
+
+		auto error = GetLastError();
+		if (error == ERROR_NO_MORE_FILES)
+			return 0;
+		if (error != ERROR_FILENAME_EXCED_RANGE)
+			return error;
+		buffer.resize(buffer.size() * 2);
+	}
+	while (true){
+		cb(&buffer[0], GetDriveTypeW(&buffer[0]));
+		bool done = false;
+		while (!FindNextVolumeW(handle, &buffer[0], (DWORD)buffer.size())){
+			auto error = GetLastError();
+			if (!error || error == ERROR_NO_MORE_FILES){
+				done = true;
+				break;
+			}
+			if (error != ERROR_FILENAME_EXCED_RANGE)
+				return error;
+			buffer.resize(buffer.size() * 2);
+		}
+		if (done)
+			break;
+	}
+	FindVolumeClose(handle);
+	return 0;
 }
