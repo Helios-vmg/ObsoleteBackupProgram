@@ -84,7 +84,7 @@ void VssSnapshot::begin(){
 	this->state = VssState::PushingTargets;
 }
 
-void VssSnapshot::push_target(const std::wstring &target){
+HRESULT VssSnapshot::push_target(const std::wstring &target){
 	if (this->state != VssState::PushingTargets)
 		throw IncorrectUsageException();
 
@@ -93,10 +93,17 @@ void VssSnapshot::push_target(const std::wstring &target){
 	//Kind of lousy, but probably good enough.
 	VSS_PWSZ temp = (VSS_PWSZ)target.c_str();
 	VSS_ID shadow_id;
-	CALL_HRESULT_FUNCTION(this->vbc->AddToSnapshotSet, (temp, GUID_NULL, &shadow_id));
+	auto error = this->vbc->AddToSnapshotSet(temp, GUID_NULL, &shadow_id);
+	if (FAILED(error)){
+		if (error == VSS_E_UNEXPECTED_PROVIDER_ERROR || error == VSS_E_NESTED_VOLUME_LIMIT)
+			this->state = VssState::PushingTargets;
+		//throw HresultException("this->vbc->AddToSnapshotSet", error);
+		return error;
+	}
 	this->props.add_shadow_id(shadow_id);
 
 	this->state = VssState::PushingTargets;
+	return S_OK;
 }
 
 class RaiiSnapshotProperties{
@@ -111,7 +118,7 @@ public:
 	}
 };
 
-void VssSnapshot::do_snapshot(HRESULT &properties_result, const wchar_t *expose_base){
+void VssSnapshot::do_snapshot(HRESULT &properties_result){
 	if (this->state != VssState::PushingTargets)
 		throw IncorrectUsageException();
 
@@ -122,20 +129,6 @@ void VssSnapshot::do_snapshot(HRESULT &properties_result, const wchar_t *expose_
 	CALL_ASYNC_FUNCTION(this->vbc->GatherWriterStatus);
 	CALL_HRESULT_FUNCTION(this->vbc->FreeWriterStatus, ());
 	CALL_ASYNC_FUNCTION(this->vbc->DoSnapshotSet);
-
-	/*
-	std::wstring base = expose_base;
-	int i = 0;
-	for (auto &shadow : this->props.get_shadows()){
-		auto &id = shadow.get_id();
-		wchar_t *temp;
-		std::wstringstream stream;
-		stream << base << '\\' << i++ << '\\';
-		auto path = stream.str();
-		CreateDirectoryW(path.c_str(), nullptr);
-		CALL_HRESULT_FUNCTION(this->vbc->ExposeSnapshot, (id, nullptr, VSS_VOLSNAP_ATTR_EXPOSED_LOCALLY, &path[0], &temp));
-	}
-	*/
 
 	this->state = VssState::SnapshotPerformed;
 
@@ -209,19 +202,14 @@ EXPORT_THIS int create_snapshot(void **object){
 
 EXPORT_THIS int add_volume_to_snapshot(void *object, const wchar_t *volume){
 	VssSnapshot *snapshot = (VssSnapshot *)object;
-	try{
-		snapshot->push_target(volume);
-	}catch (HresultException &hres){
-		return hres.hres;
-	}
-	return S_OK;
+	return snapshot->push_target(volume);
 }
 
-EXPORT_THIS int do_snapshot(void *object, const wchar_t *base_path){
+EXPORT_THIS int do_snapshot(void *object){
 	VssSnapshot *snapshot = (VssSnapshot *)object;
 	HRESULT properties_result;
 	try{
-		snapshot->do_snapshot(properties_result, base_path);
+		snapshot->do_snapshot(properties_result);
 	} catch (HresultException &hres){
 		return hres.hres;
 	}

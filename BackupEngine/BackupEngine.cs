@@ -289,13 +289,88 @@ namespace BackupEngine
             return (CompressionLevel) level;
         }
 
+        private SystemOperations.VolumeSnapshot _currentSnapshot;
+        private Dictionary<string, SystemOperations.VolumeInfo> _currentVolumes;
+        private List<Tuple<Regex, string>> _pathMapper;
+        private List<Tuple<Regex, string>> _reversePathMapper;
+
+        private void SetPathMapper()
+        {
+            _pathMapper = new List<Tuple<Regex, string>>();
+            _reversePathMapper = new List<Tuple<Regex, string>>();
+            Action<string, string, List<Tuple<Regex, string>>> f = (x, y, z) => z.Add(new Tuple<Regex, string>(new Regex(string.Format(@"({0})(\\.*|$)", Regex.Escape(x)), RegexOptions.IgnoreCase), y));
+            foreach (var shadow in _currentSnapshot.Shadows)
+            {
+                var volume = _currentVolumes[shadow.OriginalVolumeName];
+                var s = shadow.SnapshotDeviceObject.EnsureLastCharacterIsNotBackslash();
+                foreach (var path in volume.MountedPaths)
+                {
+                    var s2 = path.EnsureLastCharacterIsNotBackslash();
+                    f(s2, s, _pathMapper);
+                    f(s, s2, _reversePathMapper);
+                }
+            }
+        }
+
+        private static string MapPath(string path, List<Tuple<Regex, string>> list)
+        {
+            string ret = null;
+            int longest = 0;
+            foreach (var tuple in list)
+            {
+                var match = tuple.Item1.Match(path);
+                if (!match.Success)
+                    continue;
+                var g1 = match.Groups[1].ToString();
+                if (g1.Length <= longest)
+                    continue;
+                longest = g1.Length;
+                var g2 = match.Groups[2].ToString();
+                ret = tuple.Item2 + g2;
+            }
+            return ret ?? path;
+        }
+
+        private string MapPathForward(string path)
+        {
+            return MapPath(path, _pathMapper);
+        }
+
+        private string MapPathBack(string path)
+        {
+            return MapPath(path, _reversePathMapper);
+        }
+
+        private bool IsBackupable(DriveType type)
+        {
+            switch (type)
+            {
+                case DriveType.Unknown:
+                case DriveType.NoRootDirectory:
+                case DriveType.Network:
+                case DriveType.CDRom:
+                    return false;
+                case DriveType.Removable:
+                case DriveType.Fixed:
+                case DriveType.Ram:
+                    return true;
+            }
+            throw new ArgumentOutOfRangeException("type");
+        }
+
         public void PerformBackup()
         {
             var startTime = DateTime.UtcNow;
-            if (VersionCount == 0)
-                CreateInitialVersion(startTime);
-            else
-                UpdateExistingVersion(startTime);
+            _currentVolumes = SystemOperations.EnumerateVolumes().Where(x => IsBackupable(x.DriveType)).ToDictionary(x => x.VolumePath);
+            using (_currentSnapshot = new SystemOperations.VolumeSnapshot(_currentVolumes.Keys))
+            {
+                SetPathMapper();
+                if (VersionCount == 0)
+                    CreateInitialVersion(startTime);
+                else
+                    UpdateExistingVersion(startTime);
+            }
+            _currentSnapshot = null;
         }
 
         protected List<FileSystemObject> BaseObjects = new List<FileSystemObject>();
@@ -643,7 +718,7 @@ namespace BackupEngine
                 Reporter = ErrorReporter,
                 BackupModeMap = MakeMap(forLaterCheck),
             };
-            BaseObjects.AddRange(GetCurrentSourceLocations().Select(x => FileSystemObject.Create(x, settings)));
+            BaseObjects.AddRange(GetCurrentSourceLocations().Select(MapPathForward).Select(x => FileSystemObject.Create(x, settings)));
             BaseObjects.ForEach(x => x.IsMain = true);
             while (forLaterCheck.Count > 0)
             {
@@ -652,7 +727,7 @@ namespace BackupEngine
                 settings.BackupModeMap = MakeMap(forLaterCheck);
                 foreach (var path in oldForLaterCheck)
                     if (!Covered(path))
-                        BaseObjects.Add(FileSystemObject.Create(path, settings));
+                        BaseObjects.Add(FileSystemObject.Create(MapPathForward(path), settings));
             }
             for (int i = 0; i < BaseObjects.Count; i++)
                 BaseObjects[i].EntryNumber = i;

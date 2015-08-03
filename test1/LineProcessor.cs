@@ -4,6 +4,7 @@ using System.Linq;
 using System.Runtime.InteropServices;
 using BackupEngine;
 using BackupEngine.FileSystem;
+using BackupEngine.Util;
 
 namespace test1
 {
@@ -115,6 +116,9 @@ namespace test1
                     break;
                 case "if":
                     ProcessIf(line);
+                    break;
+                case "test":
+                    ProcessTest();
                     break;
             }
         }
@@ -352,6 +356,30 @@ namespace test1
         public void ProcessRestore()
         {
             _backupSystem.RestoreBackup();
+        }
+
+        public void ProcessTest()
+        {
+            SystemOperations.EnumerateVolumes().ForEach(Console.WriteLine);
+            //using (
+            //    var snapshot =
+            //        new SystemOperations.VolumeSnapshot(SystemOperations.EnumerateVolumes().Select(x => x.Item1)))
+            //{
+            //    Console.WriteLine("The following volumes could not be snapshot:");
+            //    snapshot.FailedVolumes.ForEach(Console.WriteLine);
+            //    Console.WriteLine("--------------------");
+            //    foreach (var shadowInfo in snapshot.Shadows)
+            //    {
+            //        Console.WriteLine(shadowInfo.SnapshotDeviceObject + "\t" + shadowInfo.CreatedAt);
+            //    }
+            //}
+            //SystemOperations.EnumerateVolumes().ForEach(x =>
+            //{
+            //    
+            //    Console.WriteLine(x.Item1 + "\t" + x.Item2);
+            //});
+            //var vi = new Alphaleonis.Win32.Filesystem.VolumeInfo(@"\\?\Volume{de894de9-3756-11e5-9bc9-94de80628c4d}\");
+            //Alphaleonis.Win32.Filesystem.Volume.EnumerateVolumes().ForEach(Console.WriteLine);
         }
     }
 }

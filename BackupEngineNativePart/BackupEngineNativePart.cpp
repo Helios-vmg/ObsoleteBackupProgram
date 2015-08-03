@@ -12,6 +12,22 @@ static bool exists(const wchar_t *_path){
 	return internal_exists(path.c_str());
 }
 
+static void enumerate_volumes_helper(const wchar_t *volume, enumerate_volumes_callback_t cb){
+	std::wstring temp = volume;
+	temp.resize(temp.size() - 1);
+	auto handle = CreateFileW(temp.c_str(), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr, OPEN_EXISTING, 0, nullptr);
+	DWORD error;
+	wchar_t volume_name[MAX_PATH * 2];
+	if (handle != INVALID_HANDLE_VALUE){
+		if (!GetVolumeInformationByHandleW(handle, volume_name, ARRAYSIZE(volume_name), nullptr, nullptr, nullptr, nullptr, 0))
+			volume_name[0] = 0;
+		CloseHandle(handle);
+	}else
+		volume_name[0] = 0;
+
+	cb(volume, volume_name, GetDriveTypeW(volume));
+}
+
 EXPORT_THIS int enumerate_volumes(enumerate_volumes_callback_t cb){
 	std::vector<wchar_t> buffer(64);
 	HANDLE handle;
@@ -28,7 +44,8 @@ EXPORT_THIS int enumerate_volumes(enumerate_volumes_callback_t cb){
 		buffer.resize(buffer.size() * 2);
 	}
 	while (true){
-		cb(&buffer[0], GetDriveTypeW(&buffer[0]));
+		enumerate_volumes_helper(&buffer[0], cb);
+
 		bool done = false;
 		while (!FindNextVolumeW(handle, &buffer[0], (DWORD)buffer.size())){
 			auto error = GetLastError();
@@ -44,5 +61,33 @@ EXPORT_THIS int enumerate_volumes(enumerate_volumes_callback_t cb){
 			break;
 	}
 	FindVolumeClose(handle);
+	return 0;
+}
+
+EXPORT_THIS int enumerate_mounted_paths(const wchar_t *volume_path, string_callback_t cb){
+	std::vector<wchar_t> buffer(64);
+	DWORD length;
+	BOOL success;
+	DWORD error;
+	while (true){
+		success = GetVolumePathNamesForVolumeNameW(volume_path, &buffer[0], buffer.size(), &length);
+		if (success)
+			break;
+		error = GetLastError();
+		if (error == ERROR_MORE_DATA){
+			buffer.resize(length);
+			continue;
+		}
+		return error;
+	}
+	std::wstring strings(&buffer[0], length);
+	size_t pos = 0;
+	size_t end;
+	while (pos != (end = strings.find((wchar_t)0, pos))){
+		if (end == strings.npos)
+			break;
+		cb(strings.substr(pos, end - pos).c_str());
+		pos = end + 1;
+	}
 	return 0;
 }

@@ -81,7 +81,9 @@
     <Compile Include="Util\Extensions.cs" />
     <Compile Include="FileSystem\FileSystemOperations.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Util\IntegerOperations.cs" />
     <Compile Include="Util\StringUtils.cs" />
+    <Compile Include="Util\SystemOperations.cs" />
     <Compile Include="VersionForRestore.cs" />
     <Compile Include="VersionManifest.cs" />
   </ItemGroup>

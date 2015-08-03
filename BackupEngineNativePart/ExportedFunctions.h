@@ -15,7 +15,7 @@ EXPORT_THIS int create_hardlink(const wchar_t *_link_location, const wchar_t *_e
 EXPORT_THIS void test_func(const wchar_t *path);
 EXPORT_THIS int create_snapshot(void **object);
 EXPORT_THIS int add_volume_to_snapshot(void *object, const wchar_t *volume);
-EXPORT_THIS int do_snapshot(void *object, const wchar_t *base_path);
+EXPORT_THIS int do_snapshot(void *object);
 typedef void(*get_snapshot_properties_callback)(
 	GUID shadow_id,
 	int snapshots_count,
@@ -32,5 +32,6 @@ typedef void(*get_snapshot_properties_callback)(
 );
 EXPORT_THIS void get_snapshot_properties(void *object, GUID *snapshot_id, get_snapshot_properties_callback callback);
 EXPORT_THIS int release_snapshot(void *object);
-typedef void(*enumerate_volumes_callback_t)(const wchar_t *volume_path, unsigned drive_type);
+typedef void(*enumerate_volumes_callback_t)(const wchar_t *volume_path, const wchar_t *volume_label, unsigned drive_type);
 EXPORT_THIS int enumerate_volumes(enumerate_volumes_callback_t);
+EXPORT_THIS int enumerate_mounted_paths(const wchar_t *volume_path, string_callback_t cb);

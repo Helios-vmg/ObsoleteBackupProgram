@@ -73,10 +73,10 @@ public:
 	//Requirement: this->state == VssState::Initial
 	void begin();
 	//Requirement: this->state == VssState::PushingTargets
-	void push_target(const std::wstring &target);
+	HRESULT push_target(const std::wstring &target);
 	//Requirement: this->state == VssState::PushingTargets && 
 	//             this->targets.size() >= 1
-	void do_snapshot(HRESULT &properties_result, const wchar_t *expose_base);
+	void do_snapshot(HRESULT &properties_result);
 	//Requirement: this->state == VssState::SnapshotPerformed
 	const SnapshotProperties &get_snapshot_properties() const{
 		return this->props;

@@ -39,7 +39,7 @@ namespace BackupEngine.FileSystem
         private static extern bool is_reparse_point(string path);
 
         [UnmanagedFunctionPointer(CallingConvention.Cdecl, CharSet = CharSet.Unicode)]
-        private delegate void StringResultCallback(string s);
+        internal delegate void StringResultCallback(string s);
 
         [DllImport("BackupEngineNativePart64.dll", CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl)]
         private static extern int get_reparse_point_target(string path, out uint unrecognizedReparseTag, StringResultCallback callback);

@@ -30,8 +30,18 @@ namespace BackupEngine.FileSystem.FileSystemObjects.Exceptions
     {
         public ReparsePointsNotImplemented(string path) :
             base("Restoring reparse points is not implemented, therefore " + 
-            "backing up reparse points is not allowed. To back up, replace this" +
+            "backing up reparse points is not allowed. To back up, replace this " +
             "reparse point with a symbolic link: " + path)
+        {
+        }
+    }
+
+    public class InvalidProgramState : Exception
+    {
+        public InvalidProgramState()
+            : base(
+                "The program has detected an inconsistency in its internal state, or an impossible condition has been met."
+                )
         {
         }
     }

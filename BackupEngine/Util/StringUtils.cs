@@ -69,6 +69,13 @@ namespace BackupEngine.Util
             return lastWasSlash;
         }
 
+        public static string EnsureLastCharacterIsNotBackslash(this string path)
+        {
+            while (path.Length > 0 && path[path.Length - 1] == '\\')
+                path = path.Substring(0, path.Length - 1);
+            return path;
+        }
+
         //Only normalizes path separators to backslash, removes consecutive
         //path separators, and ensures that the last character is not a
         //backslash.
