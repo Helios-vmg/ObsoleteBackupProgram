@@ -61,6 +61,7 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Archive\Archive.cs" />
     <Compile Include="BackupEngine.cs" />
     <Compile Include="BackupStream.cs" />
     <Compile Include="ErrorReporter.cs" />
@@ -70,6 +71,7 @@
     <Compile Include="FileSystem\FileSystemObjects\DirectoryishFso.cs" />
     <Compile Include="FileSystem\FileSystemObjects\FilishFso.cs" />
     <Compile Include="Serialization\Serializer.cs" />
+    <Compile Include="Util\BoundedStream.cs" />
     <Compile Include="Util\Extensions.cs" />
     <Compile Include="FileSystem\FileSystemOperations.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

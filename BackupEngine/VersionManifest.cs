@@ -14,9 +14,13 @@ namespace BackupEngine
         public int VersionNumber;
         public List<int> VersionDependencies = new List<int>();
         public int EntryCount;
+        public long EntriesSizeInArchive;
+        public List<long> EntrySizes = new List<long>();
         public ulong FirstStreamUniqueId;
         public ulong NextStreamUniqueId;
         public ulong FirstDifferentialChainUniqueId;
         public ulong NextDifferentialChainUniqueId;
+        public List<ulong> StreamIds = new List<ulong>();
+        public List<long> StreamSizes = new List<long>();
     }
 }
