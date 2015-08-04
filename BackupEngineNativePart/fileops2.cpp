@@ -109,11 +109,26 @@ EXPORT_THIS int get_file_guid(const wchar_t *_path, GUID *guid){
 
 	FILE_OBJECTID_BUFFER buf;
 	DWORD cbOut;
-	int ret = 0;
-	if (DeviceIoControl(h, FSCTL_CREATE_OR_GET_OBJECT_ID, nullptr, 0, &buf, sizeof(buf), &cbOut, nullptr))
-		CopyMemory(guid, &buf.ObjectId, sizeof(GUID));
-	else
-		ret = 2;
+	int ret = 2;
+	static const DWORD rounds[] = {
+		FSCTL_CREATE_OR_GET_OBJECT_ID,
+		FSCTL_GET_OBJECT_ID,
+	};
+	for (auto ctl : rounds){
+		if (DeviceIoControl(h, ctl, nullptr, 0, &buf, sizeof(buf), &cbOut, nullptr)){
+			CopyMemory(guid, &buf.ObjectId, sizeof(GUID));
+			ret = 0;
+			break;
+		}else{
+			auto error = GetLastError();
+			if (error == ERROR_WRITE_PROTECT)
+				continue;
+#ifdef _DEBUG
+			std::cerr << "DeviceIoControl() in get_file_guid(): " << error << std::endl;
+#endif
+			break;
+		}
+	}
 	CloseHandle(h);
 	return ret;
 }

@@ -1,3 +1,6 @@
 [submodule "AlphaFS"]
 	path = AlphaFS
 	url = https://github.com/alphaleonis/AlphaFS.git
+[submodule "DotNetZip.Semverd"]
+	path = DotNetZip.Semverd
+	url = https://github.com/Helios-vmg/DotNetZip.Semverd.git
