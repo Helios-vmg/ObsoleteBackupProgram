@@ -358,19 +358,36 @@ namespace BackupEngine
             throw new ArgumentOutOfRangeException("type");
         }
 
+        public bool UseSnapshots = true;
+
         public void PerformBackup()
         {
             var startTime = DateTime.UtcNow;
             _currentVolumes = SystemOperations.EnumerateVolumes().Where(x => IsBackupable(x.DriveType)).ToDictionary(x => x.VolumePath);
+            if (!UseSnapshots)
+            {
+                PerformBackupInner(startTime);
+                return;
+            }
             using (_currentSnapshot = new SystemOperations.VolumeSnapshot(_currentVolumes.Keys))
             {
+                foreach (var shadow in _currentSnapshot.Shadows)
+                {
+                    startTime = shadow.CreatedAt;
+                    break;
+                }
                 SetPathMapper();
-                if (VersionCount == 0)
-                    CreateInitialVersion(startTime);
-                else
-                    UpdateExistingVersion(startTime);
+                PerformBackupInner(startTime);
             }
             _currentSnapshot = null;
+        }
+
+        private void PerformBackupInner(DateTime startTime)
+        {
+            if (VersionCount == 0)
+                CreateInitialVersion(startTime);
+            else
+                UpdateExistingVersion(startTime);
         }
 
         protected List<FileSystemObject> BaseObjects = new List<FileSystemObject>();
