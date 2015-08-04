@@ -713,7 +713,7 @@ namespace BackupEngine
                 return;
             _baseObjectsSet = true;
             var forLaterCheck = new List<string>();
-            var settings = new FileSystemObjectSettings
+            var settings = new FileSystemObjectSettings(this)
             {
                 Reporter = ErrorReporter,
                 BackupModeMap = MakeMap(forLaterCheck),
@@ -731,6 +731,7 @@ namespace BackupEngine
             }
             for (int i = 0; i < BaseObjects.Count; i++)
                 BaseObjects[i].EntryNumber = i;
+            RecalculateFileGuids();
         }
 
         private bool Covered(string path)
@@ -879,5 +880,22 @@ namespace BackupEngine
                 .ToList();
         }
 
+        private readonly Queue<FilishFso> _recalculateFileGuids = new Queue<FilishFso>();
+
+        public void EnqueueFileForGuidGet(FilishFso fso)
+        {
+            _recalculateFileGuids.Enqueue(fso);
+        }
+
+        private void RecalculateFileGuids()
+        {
+            while (_recalculateFileGuids.Count > 0)
+            {
+                var fso = _recalculateFileGuids.Dequeue();
+                var path = fso.Path;
+                path = MapPathBack(path);
+                fso.SetFileSystemGuid(path, false);
+            }
+        }
     }
 }

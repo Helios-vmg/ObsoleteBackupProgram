@@ -49,9 +49,25 @@ namespace BackupEngine.FileSystem.FileSystemObjects
                 Size = 0;
             }
 
+            SetFileSystemGuid(path);
+        }
+
+        public void SetFileSystemGuid(string path, bool retry = true)
+        {
             try
             {
                 FileSystemGuid = FileSystemOperations.GetFileGuid(path);
+            }
+            catch (UnableToObtainGuid e)
+            {
+                if (retry)
+                    BackupEngine.EnqueueFileForGuidGet(this);
+                else
+                {
+                    if (!ReportError(e, @"getting unique ID for """ + path + @""""))
+                        throw;
+                    FileSystemGuid = null;
+                }
             }
             catch (Exception e)
             {

@@ -30,8 +30,14 @@ namespace BackupEngine.FileSystem
 
     public class FileSystemObjectSettings
     {
+        public readonly BaseBackupEngine BackupEngine = null;
         public IErrorReporter Reporter = null;
         public Func<FileSystemObject, BackupMode> BackupModeMap = null;
+
+        public FileSystemObjectSettings(BaseBackupEngine bbe)
+        {
+            BackupEngine = bbe;
+        }
     }
 
     [ProtoContract]
@@ -220,6 +226,12 @@ namespace BackupEngine.FileSystem
             }
         }
 
+        private BaseBackupEngine _backupEngine = null;
+
+        protected BaseBackupEngine BackupEngine
+        {
+            get { return _backupEngine ?? (Parent != null ? Parent.BackupEngine : null); }
+        }
         private IErrorReporter _reporter = null;
         private Func<FileSystemObject, BackupMode> _backupModeMap = null;
 
@@ -269,6 +281,7 @@ namespace BackupEngine.FileSystem
         {
             if (settings != null)
             {
+                _backupEngine = settings.BackupEngine;
                 _reporter = settings.Reporter;
                 _backupModeMap = settings.BackupModeMap;
             }

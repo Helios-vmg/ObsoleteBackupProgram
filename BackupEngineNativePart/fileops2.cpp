@@ -124,7 +124,8 @@ EXPORT_THIS int get_file_guid(const wchar_t *_path, GUID *guid){
 			if (error == ERROR_WRITE_PROTECT)
 				continue;
 #ifdef _DEBUG
-			std::cerr << "DeviceIoControl() in get_file_guid(): " << error << std::endl;
+			if (error != ERROR_FILE_NOT_FOUND)
+				std::cerr << "DeviceIoControl() in get_file_guid(): " << error << std::endl;
 #endif
 			break;
 		}
