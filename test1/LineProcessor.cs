@@ -117,8 +117,56 @@ namespace test1
                 case "if":
                     ProcessIf(line);
                     break;
-                case "test":
-                    ProcessTest();
+                case "set":
+                    ProcessSet(line);
+                    break;
+            }
+        }
+
+        private void ProcessSet(string[] line)
+        {
+            switch (line[1].ToLower())
+            {
+                case "use_snapshots":
+                    ProcessSetUseSnapshots(line);
+                    break;
+                case "change_criterium":
+                    ProcessSetChangeCriterium(line);
+                    break;
+            }
+        }
+
+        private void ProcessSetChangeCriterium(string[] line)
+        {
+            switch (line[2].ToLower())
+            {
+                case "archive_flag":
+                    _backupSystem.GlobalChangeCriterium = BackupSystem.ChangeCriterium.ArchiveFlag;
+                    break;
+                case "size":
+                    _backupSystem.GlobalChangeCriterium = BackupSystem.ChangeCriterium.Size;
+                    break;
+                case "date":
+                    _backupSystem.GlobalChangeCriterium = BackupSystem.ChangeCriterium.Date;
+                    break;
+                case "hash":
+                    _backupSystem.GlobalChangeCriterium = BackupSystem.ChangeCriterium.Hash;
+                    break;
+                case "hash_auto":
+                    _backupSystem.GlobalChangeCriterium = BackupSystem.ChangeCriterium.HashAuto;
+                    break;
+            }
+        }
+
+        private void ProcessSetUseSnapshots(string[] line)
+        {
+            switch (line[2].ToLower())
+            {
+                case "true":
+                    _backupSystem.UseSnapshots = true;
+                    break;
+                case "false":
+                    _backupSystem.UseSnapshots = false;
                     break;
             }
         }
@@ -140,7 +188,7 @@ namespace test1
                 case "versions":
                     ProcessShowVersions();
                     break;
-                case "versioncount":
+                case "version_count":
                     ProcessShowVersionCount();
                     break;
                 case "paths":
@@ -356,30 +404,6 @@ namespace test1
         public void ProcessRestore()
         {
             _backupSystem.RestoreBackup();
-        }
-
-        public void ProcessTest()
-        {
-            SystemOperations.EnumerateVolumes().ForEach(Console.WriteLine);
-            //using (
-            //    var snapshot =
-            //        new SystemOperations.VolumeSnapshot(SystemOperations.EnumerateVolumes().Select(x => x.Item1)))
-            //{
-            //    Console.WriteLine("The following volumes could not be snapshot:");
-            //    snapshot.FailedVolumes.ForEach(Console.WriteLine);
-            //    Console.WriteLine("--------------------");
-            //    foreach (var shadowInfo in snapshot.Shadows)
-            //    {
-            //        Console.WriteLine(shadowInfo.SnapshotDeviceObject + "\t" + shadowInfo.CreatedAt);
-            //    }
-            //}
-            //SystemOperations.EnumerateVolumes().ForEach(x =>
-            //{
-            //    
-            //    Console.WriteLine(x.Item1 + "\t" + x.Item2);
-            //});
-            //var vi = new Alphaleonis.Win32.Filesystem.VolumeInfo(@"\\?\Volume{de894de9-3756-11e5-9bc9-94de80628c4d}\");
-            //Alphaleonis.Win32.Filesystem.Volume.EnumerateVolumes().ForEach(Console.WriteLine);
         }
     }
 }

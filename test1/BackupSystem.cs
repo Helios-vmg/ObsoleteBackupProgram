@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Runtime.Remoting.Messaging;
 using BackupEngine;
 using BackupEngine.FileSystem;
 
@@ -67,6 +68,35 @@ namespace test1
         public override int CompressionLevelForStructuralFiles
         {
             get { return 0; }
+        }
+
+        public ChangeCriterium GlobalChangeCriterium = ChangeCriterium.Hash;
+
+        public enum ChangeCriterium
+        {
+            ArchiveFlag,
+            Size,
+            Date,
+            Hash,
+            HashAuto,
+        }
+
+        public override BackupEngine.ChangeCriterium GetChangeCriterium(FileSystemObject newFile)
+        {
+            switch (GlobalChangeCriterium)
+            {
+                case ChangeCriterium.ArchiveFlag:
+                    return BackupEngine.ChangeCriterium.ArchiveFlag;
+                case ChangeCriterium.Size:
+                    return BackupEngine.ChangeCriterium.Size;
+                case ChangeCriterium.Date:
+                    return BackupEngine.ChangeCriterium.Date;
+                case ChangeCriterium.Hash:
+                    return BackupEngine.ChangeCriterium.Hash;
+                case ChangeCriterium.HashAuto:
+                    return newFile.Size < 1024*1024 ? BackupEngine.ChangeCriterium.Hash : BackupEngine.ChangeCriterium.Date;
+            }
+            throw new ArgumentOutOfRangeException();
         }
     }
 }

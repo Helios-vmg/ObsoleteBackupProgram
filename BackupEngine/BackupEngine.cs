@@ -1,14 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Runtime.Serialization;
 using System.Security.Cryptography;
-using System.Text;
 using System.Text.RegularExpressions;
-using System.Threading.Tasks;
-using System.Windows.Markup;
 using BackupEngine.FileSystem;
 using BackupEngine.FileSystem.FileSystemObjects;
 using BackupEngine.FileSystem.FileSystemObjects.Exceptions;
@@ -314,6 +309,8 @@ namespace BackupEngine
 
         private static string MapPath(string path, List<Tuple<Regex, string>> list)
         {
+            if (list == null)
+                return path;
             string ret = null;
             int longest = 0;
             foreach (var tuple in list)
