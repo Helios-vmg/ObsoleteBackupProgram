@@ -78,18 +78,32 @@ namespace BackupEngine.Util
     {
         protected Stream Stream;
         protected HashAlgorithm Hash;
+        protected readonly bool KeepOpen;
 
-        protected HashCalculatorFilter(Stream stream, HashAlgorithm hash)
+        protected HashCalculatorFilter(Stream stream, HashAlgorithm hash, bool keepOpen = true)
         {
             Stream = stream;
             Hash = hash;
+            KeepOpen = keepOpen;
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            if (!disposing)
+                return;
+
+            if (!KeepOpen && Stream != null)
+            {
+                Stream.Dispose();
+                Stream = null;
+            }
         }
     }
 
     public class HashCalculatorInputFilter : HashCalculatorFilter
     {
 
-        public HashCalculatorInputFilter(Stream stream, HashAlgorithm hash) : base(stream, hash) {}
+        public HashCalculatorInputFilter(Stream stream, HashAlgorithm hash, bool keepOpen = true) : base(stream, hash, keepOpen) { }
 
         public override void Flush()
         {
@@ -146,7 +160,7 @@ namespace BackupEngine.Util
 
     public class HashCalulatorOutputFilter : HashCalculatorFilter
     {
-        public HashCalulatorOutputFilter(Stream stream, HashAlgorithm hash) : base(stream, hash) { }
+        public HashCalulatorOutputFilter(Stream stream, HashAlgorithm hash, bool keepOpen = true) : base(stream, hash, keepOpen) { }
 
         public override void Flush()
         {

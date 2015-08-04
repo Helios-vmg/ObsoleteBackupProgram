@@ -12,16 +12,23 @@ namespace BackupEngine.Serialization
 {
     public static class Serializer
     {
+        public static void SerializeToStream<T>(Stream dst, T o)
+        {
+            ProtoBuf.Serializer.Serialize(dst, o);
+        }
+        
         public static byte[] Serialize<T>(T o)
         {
             var mem = new MemoryStream();
-            ProtoBuf.Serializer.Serialize(mem, o);
+            SerializeToStream(mem, o);
             return mem.ToArray();
         }
 
         public static Stream SerializeToStream<T>(T o)
         {
-            return new MemoryStream(Serialize(o));
+            var mem = new MemoryStream();
+            SerializeToStream(mem, o);
+            return mem;
         }
 
         public static T Deserialize<T>(byte[] buffer)
