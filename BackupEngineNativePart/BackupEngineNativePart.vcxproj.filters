@@ -31,6 +31,18 @@
     <Filter Include="Source Files\fileops2">
       <UniqueIdentifier>{4740314d-32eb-48d7-ae74-63947a18efcf}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Source Files\compression">
+      <UniqueIdentifier>{a54c2183-2ba1-4f1f-9f66-276bc03f5ffa}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\compression">
+      <UniqueIdentifier>{0232646b-09c7-4a39-9590-d745f634b454}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\streams">
+      <UniqueIdentifier>{b3f015fb-d90b-4aba-876a-940569dc169b}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\streams">
+      <UniqueIdentifier>{c26b9406-7f16-4bc1-9d27-410ad1f87e58}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="stdafx.h">
@@ -81,6 +93,12 @@
     <ClInclude Include="vss.h">
       <Filter>Header Files\VSS</Filter>
     </ClInclude>
+    <ClInclude Include="streams.h">
+      <Filter>Header Files\streams</Filter>
+    </ClInclude>
+    <ClInclude Include="lzma.h">
+      <Filter>Header Files\compression</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp">
@@ -127,6 +145,12 @@
     </ClCompile>
     <ClCompile Include="fileops2.cpp">
       <Filter>Source Files\fileops2</Filter>
+    </ClCompile>
+    <ClCompile Include="streams.cpp">
+      <Filter>Source Files\streams</Filter>
+    </ClCompile>
+    <ClCompile Include="lzma.cpp">
+      <Filter>Source Files\compression</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>
