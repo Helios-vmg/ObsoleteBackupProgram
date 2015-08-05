@@ -3,8 +3,6 @@
 #include <lzma.h>
 #include "lzma.h"
 
-const size_t buffer_size = 1 << 12;
-
 bool LzmaOutputStream::pass_data_to_stream(lzma_ret ret){
 	if (!this->lstream.avail_out || ret == LZMA_STREAM_END) {
 		size_t write_size = this->output_buffer.size() - this->lstream.avail_out;
@@ -38,7 +36,7 @@ bool LzmaOutputStream::pass_data_to_stream(lzma_ret ret){
 	return true;
 }
 
-LzmaOutputStream::LzmaOutputStream(std::shared_ptr<OutStream> wrapped_stream, int compression_level, bool extreme_mode, bool &multithreaded){
+LzmaOutputStream::LzmaOutputStream(std::shared_ptr<OutStream> wrapped_stream, bool &multithreaded, int compression_level, size_t buffer_size, bool extreme_mode){
 	this->stream = wrapped_stream;
 	multithreaded = false;
 	this->lstream = LZMA_STREAM_INIT;
@@ -100,7 +98,7 @@ void LzmaOutputStream::flush(){
 	this->stream->flush();
 }
 
-LzmaInputStream::LzmaInputStream(std::shared_ptr<InStream> wrapped_stream) : at_eof(false){
+LzmaInputStream::LzmaInputStream(std::shared_ptr<InStream> wrapped_stream, size_t buffer_size) : at_eof(false){
 	this->stream = wrapped_stream;
 	this->lstream = LZMA_STREAM_INIT;
 	lzma_ret ret = lzma_stream_decoder(&this->lstream, UINT64_MAX, LZMA_IGNORE_CHECK);
