@@ -1,0 +1,25 @@
+/*begin SHA-256*/
+filter(file_data)
+/*save pos1 (64-bit)*/
+filter(rdiff_data)
+/*save pos2 (64-bit)*/
+filter(fso_data)
+/*save pos3 (64-bit)*/
+filter_unencrypted(manifest)
+/*save pos4 (64-bit)*/
+length
+/*end SHA-256*/
+sha256
+
+filter() and filter_unencrypted() are invertible functions that map binary strings to binary strings. filter() may involve an encryption step, but filter_unencrypted() does not. It is not possible to seek on x by seeking on filter(x) or filter_unencrypted(x), therefore when unfiltering filter(x), x can only be read from beggining to end.
+
+file_data, rdiff_data, and fso_data each consists of binary strings concatenated without padding. The length of each binary string is stored in a table elsewhere.
+Each string in file_data contains a whole file or an rdiff data block.
+Each string in rdiff_data contains an rdiff program associated with an rdiff data block. The association is stored elsewhere.
+Each string in fso_data contains a serialized FileSystemObject.
+
+manifest contains pos1, pos2, pos3, and the lengths of every binary string in file_data, rdiff_data, and fso_data.
+
+length contains the difference between pos4 and pos3 (i.e. the length of filter_unencrypted(manifest)) stored as a fixed length 64-bit integer. Archive reading will begin here.
+
+sha256 contains the SHA-256 digest of the data from /*begin SHA-256*/ to /*end SHA-256*/.
