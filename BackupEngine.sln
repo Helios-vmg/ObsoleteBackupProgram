@@ -20,11 +20,9 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "vss_test", "vss_test\vss_te
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "extern", "extern", "{3C231DE0-8A51-4A6C-9B38-ECF73313FC29}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AlphaFS", "AlphaFS\AlphaFS\AlphaFS.csproj", "{F0F9AF1E-D5B5-4D72-804A-5380622FBDEA}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AlphaFS", "F:\Data\Programming\Visual Studio 2013\Projects\BackupEngine\AlphaFS\AlphaFS\AlphaFS.csproj", "{F0F9AF1E-D5B5-4D72-804A-5380622FBDEA}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Zip DLL", "DotNetZip.Semverd\src\Zip\Zip DLL.csproj", "{D3B0AD67-44D8-4B3D-BED9-CE1FD6DE2C5A}"
-EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BZip2 DLL", "DotNetZip.Semverd\src\BZip2\BZip2 DLL.csproj", "{E2CE0D56-7AF8-4404-BD0C-BC562CBD74D4}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Zip DLL", "F:\Data\Programming\Visual Studio 2013\Projects\BackupEngine\DotNetZip.Semverd\src\Zip\Zip DLL.csproj", "{D3B0AD67-44D8-4B3D-BED9-CE1FD6DE2C5A}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -64,10 +62,6 @@ Global
 		{D3B0AD67-44D8-4B3D-BED9-CE1FD6DE2C5A}.Debug|x64.Build.0 = Debug|Any CPU
 		{D3B0AD67-44D8-4B3D-BED9-CE1FD6DE2C5A}.Release|x64.ActiveCfg = Release|Any CPU
 		{D3B0AD67-44D8-4B3D-BED9-CE1FD6DE2C5A}.Release|x64.Build.0 = Release|Any CPU
-		{E2CE0D56-7AF8-4404-BD0C-BC562CBD74D4}.Debug|x64.ActiveCfg = Debug|Any CPU
-		{E2CE0D56-7AF8-4404-BD0C-BC562CBD74D4}.Debug|x64.Build.0 = Debug|Any CPU
-		{E2CE0D56-7AF8-4404-BD0C-BC562CBD74D4}.Release|x64.ActiveCfg = Release|Any CPU
-		{E2CE0D56-7AF8-4404-BD0C-BC562CBD74D4}.Release|x64.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -75,6 +69,5 @@ Global
 	GlobalSection(NestedProjects) = preSolution
 		{F0F9AF1E-D5B5-4D72-804A-5380622FBDEA} = {3C231DE0-8A51-4A6C-9B38-ECF73313FC29}
 		{D3B0AD67-44D8-4B3D-BED9-CE1FD6DE2C5A} = {3C231DE0-8A51-4A6C-9B38-ECF73313FC29}
-		{E2CE0D56-7AF8-4404-BD0C-BC562CBD74D4} = {3C231DE0-8A51-4A6C-9B38-ECF73313FC29}
 	EndGlobalSection
 EndGlobal

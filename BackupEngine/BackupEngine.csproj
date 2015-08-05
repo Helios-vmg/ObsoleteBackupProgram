@@ -62,6 +62,9 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Archive\Archive.cs" />
+    <Compile Include="Archive\ArchiveRead.cs" />
+    <Compile Include="Archive\ArchiveWrite.cs" />
+    <Compile Include="Archive\FilterGenerator.cs" />
     <Compile Include="BackupEngine.cs" />
     <Compile Include="BackupStream.cs" />
     <Compile Include="ErrorReporter.cs" />
@@ -71,12 +74,17 @@
     <Compile Include="FileSystem\FileSystemObjects\DirectoryishFso.cs" />
     <Compile Include="FileSystem\FileSystemObjects\FilishFso.cs" />
     <Compile Include="Serialization\Serializer.cs" />
-    <Compile Include="Util\BoundedStream.cs" />
     <Compile Include="Util\Extensions.cs" />
     <Compile Include="FileSystem\FileSystemOperations.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="Util\InlineHashCalculator.cs" />
     <Compile Include="Util\IntegerOperations.cs" />
+    <Compile Include="Util\Streams\BoundedStream.cs" />
+    <Compile Include="Util\Streams\Filter.cs" />
+    <Compile Include="Util\Streams\HashCalculatorFilter.cs" />
+    <Compile Include="Util\Streams\HashCalculatorInputFilter.cs" />
+    <Compile Include="Util\Streams\HashCalulatorOutputFilter.cs" />
+    <Compile Include="Util\Streams\IdentityFilter.cs" />
+    <Compile Include="Util\Streams\InlineHashCalculator.cs" />
     <Compile Include="Util\StringUtils.cs" />
     <Compile Include="Util\SystemOperations.cs" />
     <Compile Include="VersionForRestore.cs" />
@@ -95,6 +103,7 @@
       <Name>Zip DLL</Name>
     </ProjectReference>
   </ItemGroup>
+  <ItemGroup />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.

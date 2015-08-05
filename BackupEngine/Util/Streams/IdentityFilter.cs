@@ -3,21 +3,17 @@ using System.IO;
 
 namespace BackupEngine.Util.Streams
 {
-    class BoundedStream : Stream
+    public class IdentityFilter : Filter
     {
-        private Stream _stream;
-        private long _size;
-        private long _bytesRead;
+        private long _bytesProcessed = 0;
 
-        public BoundedStream(Stream stream, long boundedSize)
+        public IdentityFilter(Stream stream, bool keepOpen = true):base(stream, keepOpen)
         {
-            _stream = stream;
-            _size = boundedSize;
-            _bytesRead = 0;
         }
 
         public override void Flush()
         {
+            Stream.Flush();
         }
 
         public override long Seek(long offset, SeekOrigin origin)
@@ -32,19 +28,20 @@ namespace BackupEngine.Util.Streams
 
         public override int Read(byte[] buffer, int offset, int count)
         {
-            if (count > _size - _bytesRead)
-                count = (int)(_size - _bytesRead);
-            return _stream.Read(buffer, offset, count);
+            var ret = Stream.Read(buffer, offset, count);
+            _bytesProcessed += ret;
+            return ret;
         }
 
         public override void Write(byte[] buffer, int offset, int count)
         {
-            throw new InvalidOperationException();
+            Stream.Write(buffer, offset, count);
+            _bytesProcessed += count;
         }
 
         public override bool CanRead
         {
-            get { return true; }
+            get { return Stream.CanRead; }
         }
 
         public override bool CanSeek
@@ -54,18 +51,28 @@ namespace BackupEngine.Util.Streams
 
         public override bool CanWrite
         {
-            get { return false; }
+            get { return Stream.CanWrite; }
         }
 
         public override long Length
         {
-            get { return _size; }
+            get { throw new InvalidOperationException(); }
         }
 
         public override long Position
         {
             get { throw new InvalidOperationException(); }
             set { throw new InvalidOperationException(); }
+        }
+
+        public override long BytesIn
+        {
+            get { return _bytesProcessed; }
+        }
+
+        public override long BytesOut
+        {
+            get { return _bytesProcessed; }
         }
     }
 }

@@ -1,23 +1,16 @@
 ﻿using System;
 using System.IO;
+using System.Security.Cryptography;
 
 namespace BackupEngine.Util.Streams
 {
-    class BoundedStream : Stream
+    public class HashCalulatorOutputFilter : HashCalculatorFilter
     {
-        private Stream _stream;
-        private long _size;
-        private long _bytesRead;
-
-        public BoundedStream(Stream stream, long boundedSize)
-        {
-            _stream = stream;
-            _size = boundedSize;
-            _bytesRead = 0;
-        }
+        public HashCalulatorOutputFilter(Stream stream, HashAlgorithm hash, bool keepOpen = true) : base(stream, hash, keepOpen) { }
 
         public override void Flush()
         {
+            Stream.Flush();
         }
 
         public override long Seek(long offset, SeekOrigin origin)
@@ -32,19 +25,20 @@ namespace BackupEngine.Util.Streams
 
         public override int Read(byte[] buffer, int offset, int count)
         {
-            if (count > _size - _bytesRead)
-                count = (int)(_size - _bytesRead);
-            return _stream.Read(buffer, offset, count);
+            throw new InvalidOperationException();
         }
 
         public override void Write(byte[] buffer, int offset, int count)
         {
-            throw new InvalidOperationException();
+            var task = Stream.WriteAsync(buffer, offset, count);
+            Hash.TransformBlock(buffer, offset, count, null, 0);
+            BytesProcessed += count;
+            task.Wait();
         }
 
         public override bool CanRead
         {
-            get { return true; }
+            get { return false; }
         }
 
         public override bool CanSeek
@@ -54,12 +48,12 @@ namespace BackupEngine.Util.Streams
 
         public override bool CanWrite
         {
-            get { return false; }
+            get { return true; }
         }
 
         public override long Length
         {
-            get { return _size; }
+            get { throw new InvalidOperationException(); }
         }
 
         public override long Position

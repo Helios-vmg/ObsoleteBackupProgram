@@ -1,20 +1,12 @@
 ﻿using System;
 using System.IO;
+using System.Security.Cryptography;
 
 namespace BackupEngine.Util.Streams
 {
-    class BoundedStream : Stream
+    public class HashCalculatorInputFilter : HashCalculatorFilter
     {
-        private Stream _stream;
-        private long _size;
-        private long _bytesRead;
-
-        public BoundedStream(Stream stream, long boundedSize)
-        {
-            _stream = stream;
-            _size = boundedSize;
-            _bytesRead = 0;
-        }
+        public HashCalculatorInputFilter(Stream stream, HashAlgorithm hash, bool keepOpen = true) : base(stream, hash, keepOpen) { }
 
         public override void Flush()
         {
@@ -32,9 +24,10 @@ namespace BackupEngine.Util.Streams
 
         public override int Read(byte[] buffer, int offset, int count)
         {
-            if (count > _size - _bytesRead)
-                count = (int)(_size - _bytesRead);
-            return _stream.Read(buffer, offset, count);
+            var ret = Stream.Read(buffer, offset, count);
+            Hash.TransformBlock(buffer, offset, ret, null, 0);
+            BytesProcessed += ret;
+            return ret;
         }
 
         public override void Write(byte[] buffer, int offset, int count)
@@ -59,7 +52,7 @@ namespace BackupEngine.Util.Streams
 
         public override long Length
         {
-            get { return _size; }
+            get { return Stream.Length; }
         }
 
         public override long Position

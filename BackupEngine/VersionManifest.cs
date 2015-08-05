@@ -15,12 +15,29 @@ namespace BackupEngine
         public List<int> VersionDependencies = new List<int>();
         public int EntryCount;
         public long EntriesSizeInArchive;
-        public List<long> EntrySizes = new List<long>();
         public ulong FirstStreamUniqueId;
         public ulong NextStreamUniqueId;
         public ulong FirstDifferentialChainUniqueId;
         public ulong NextDifferentialChainUniqueId;
-        public List<ulong> StreamIds = new List<ulong>();
-        public List<long> StreamSizes = new List<long>();
+
+        public ArchiveMetadata ArchiveMetadata;
+    }
+
+    [ProtoContract(ImplicitFields = ImplicitFields.AllPublic)]
+    public class ArchiveMetadata
+    {
+        public List<long> EntrySizes;
+        public List<ulong> StreamIds;
+        public List<long> StreamSizes;
+
+        public enum CompressionMethodType
+        {
+            None,
+            GZip,
+            BZip2,
+            Lzma,
+        }
+
+        public CompressionMethodType CompressionMethod;
     }
 }
