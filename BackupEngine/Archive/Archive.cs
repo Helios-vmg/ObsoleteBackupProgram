@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using BackupEngine.Util.Streams;
 
 namespace BackupEngine.Archive
 {
@@ -17,16 +18,17 @@ namespace BackupEngine.Archive
             _filters.Add(fg);
         }
 
-        protected Stream DoFiltering(Stream stream, bool includeEncryption = true)
+        protected Filter DoFiltering(Stream stream, bool includeEncryption = true)
         {
-            bool first = true;
+            var ret = stream as Filter;
             var enumeration = includeEncryption ? _filters : _filters.Where(x => !x.IsEncryption);
+            bool first = true;
             foreach (var filterGenerator in enumeration)
             {
-                stream = filterGenerator.Filter(stream, first);
+                ret = filterGenerator.Filter(ret ?? stream, ret == null && first);
                 first = false;
             }
-            return stream;
+            return ret ?? new IdentityFilter(stream);
         }
     }
 }

@@ -62,8 +62,8 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Archive\Archive.cs" />
-    <Compile Include="Archive\ArchiveRead.cs" />
-    <Compile Include="Archive\ArchiveWrite.cs" />
+    <Compile Include="Archive\ArchiveReader.cs" />
+    <Compile Include="Archive\ArchiveWriter.cs" />
     <Compile Include="Archive\FilterGenerator.cs" />
     <Compile Include="BackupEngine.cs" />
     <Compile Include="BackupStream.cs" />
