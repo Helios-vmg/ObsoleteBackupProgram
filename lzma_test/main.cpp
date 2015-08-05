@@ -5,8 +5,9 @@
 #include <lzma.h>
 #include <memory>
 #include <exception>
+#include <algorithm>
 
-const size_t buffer_size = 1 << 20;
+const size_t buffer_size = 1 << 12;
 
 class LzmaInitializationException : public std::exception{
 	std::string message;
@@ -30,7 +31,7 @@ class InStream{
 public:
 	virtual ~InStream(){}
 	virtual size_t read(void *buffer, size_t size) = 0;
-	virtual void flush() = 0;
+	virtual bool eof() = 0;
 };
 
 class OutStream{
@@ -108,9 +109,9 @@ public:
 			throw LzmaInitializationException(msg);
 		}
 		this->action = LZMA_RUN;
-		output_buffer.resize(buffer_size);
-		this->lstream.next_out = &output_buffer[0];
-		this->lstream.avail_out = output_buffer.size();
+		this->output_buffer.resize(buffer_size);
+		this->lstream.next_out = &this->output_buffer[0];
+		this->lstream.avail_out = this->output_buffer.size();
 		this->bytes_read = 0;
 		this->bytes_written = 0;
 	}
@@ -120,9 +121,7 @@ public:
 	}
 	void write(const void *buffer, size_t size) override{
 		do{
-			if (this->lstream.avail_in == 0){
-				if (!size)
-					break;
+			if (this->lstream.avail_in == 0 && size){
 				this->bytes_read += size;
 				this->lstream.next_in = (const uint8_t *)buffer;
 				this->lstream.avail_in = size;
@@ -136,6 +135,99 @@ public:
 		this->action = LZMA_FINISH;
 		this->pass_data_to_stream(lzma_code(&this->lstream, this->action));
 		this->stream->flush();
+	}
+};
+
+class LzmaInputStream : public InStream{
+	std::shared_ptr<InStream> stream;
+	lzma_stream lstream;
+	lzma_action action;
+	std::vector<uint8_t> input_buffer;
+	const uint8_t *queued_buffer;
+	size_t queued_bytes;
+	uint64_t bytes_read,
+		bytes_written;
+	bool at_eof;
+public:
+	LzmaInputStream(std::shared_ptr<InStream> wrapped_stream): at_eof(false){
+		this->stream = wrapped_stream;
+		this->lstream = LZMA_STREAM_INIT;
+		lzma_ret ret = lzma_stream_decoder(&this->lstream, UINT64_MAX, LZMA_IGNORE_CHECK);
+		if (ret != LZMA_OK){
+			const char *msg;
+			switch (ret) {
+				case LZMA_MEM_ERROR:
+					msg = "Memory allocation failed.\n";
+					break;
+				case LZMA_OPTIONS_ERROR:
+					msg = "Unsupported decompressor flags.\n";
+					break;
+				default:
+					msg = "Unknown error.\n";
+					break;
+			}
+			throw LzmaInitializationException(msg);
+		}
+		this->action = LZMA_RUN;
+		this->input_buffer.resize(buffer_size);
+		this->bytes_read = 0;
+		this->bytes_written = 0;
+		this->queued_buffer = &this->input_buffer[0];
+		this->queued_bytes = 0;
+	}
+	~LzmaInputStream(){
+		lzma_end(&this->lstream);
+	}
+	size_t read(void *buffer, size_t size) override{
+		if (this->eof())
+			return 0;
+		size_t ret = 0;
+		this->lstream.next_out = (uint8_t *)buffer;
+		this->lstream.avail_out = size;
+		while (this->lstream.avail_out){
+			if (this->lstream.avail_in == 0 && !this->stream->eof()){
+				this->lstream.next_in = &this->input_buffer[0];
+				this->lstream.avail_in = this->stream->read(&this->input_buffer[0], this->input_buffer.size());
+				this->bytes_read += this->lstream.avail_in;
+				if (this->stream->eof()){
+					this->action = LZMA_FINISH;
+				}
+			}
+			lzma_ret ret_code = lzma_code(&this->lstream, action);
+			if (ret_code != LZMA_OK) {
+				if (ret_code == LZMA_STREAM_END)
+					break;
+				const char *msg;
+				switch (ret_code) {
+					case LZMA_MEM_ERROR:
+						msg = "Memory allocation failed.";
+						break;
+					case LZMA_FORMAT_ERROR:
+						msg = "The input is not in the .xz format.";
+						break;
+					case LZMA_OPTIONS_ERROR:
+						msg = "Unsupported compression options.";
+						break;
+					case LZMA_DATA_ERROR:
+						msg = "Compressed file is corrupt.";
+						break;
+					case LZMA_BUF_ERROR:
+						msg = "Compressed file is truncated or otherwise corrupt.";
+						break;
+					default:
+						msg = "Unknown error.";
+						break;
+				}
+				throw LzmaOperationException(msg);
+			}
+		}
+		ret = size - this->lstream.avail_out;
+		this->bytes_written += ret;
+		this->at_eof = !ret;
+		return ret;
+	}
+	bool eof() override{
+		return this->at_eof;
 	}
 };
 
@@ -154,24 +246,42 @@ public:
 	}
 };
 
+class FileInputStream : public InStream{
+	std::ifstream stream;
+public:
+	FileInputStream(const char *path) : stream(path, std::ios::binary){
+		if (!this->stream)
+			throw std::string("Error opening ") + path;
+	}
+	size_t read(void *buffer, size_t size) override{
+		this->stream.read((char *)buffer, size);
+		if (this->stream.bad())
+			throw std::string("I/O error while reading file.");
+		return this->stream.gcount();
+	}
+	bool eof() override{
+		return this->stream.eof();
+	}
+};
+
 int main(int argc, char **argv){
 	if (argc < 3)
 		return -1;
-	std::ifstream input(argv[1], std::ios::binary);
-	if (!input){
-		std::cerr << "Error opening file(s).\n";
-		return -1;
-	}
-	std::shared_ptr<OutStream> stream(new FileOutputStream(argv[2]));
+#if 1
+	std::shared_ptr<InStream> in_stream_0(new FileInputStream(argv[1]));
+	std::shared_ptr<InStream> in_stream(new LzmaInputStream(in_stream_0));
+	std::shared_ptr<OutStream> out_stream(new FileOutputStream(argv[2]));
+#else
+	std::shared_ptr<InStream> in_stream(new FileInputStream(argv[1]));
+	std::shared_ptr<OutStream> out_stream_0(new FileOutputStream(argv[2]));
 	bool mt = false;
-	std::shared_ptr<OutStream> stream2(new LzmaOutputStream(stream, 1, false, mt));
-
+	std::shared_ptr<OutStream> out_stream(new LzmaOutputStream(out_stream_0, 1, false, mt));
+#endif
 	std::vector<char> buffer(buffer_size);
 
-	while (input){
-		input.read(&buffer[0], buffer.size());
-		stream2->write(&buffer[0], input.gcount());
+	while (!in_stream->eof()){
+		auto read = in_stream->read(&buffer[0], buffer.size());
+		out_stream->write(&buffer[0], read);
 	}
-
 	return 0;
 }
