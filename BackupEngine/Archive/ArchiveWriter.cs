@@ -21,7 +21,7 @@ namespace BackupEngine.Archive
 
         private FileStream _fileStream;
         private Stream _hashedStream;
-        private Stream _filteredStream;
+        private Filter _filter;
         private ArchiveState _state = ArchiveState.Initial;
         private readonly List<ulong> _streamIds = new List<ulong>();
         private readonly List<long> _streamSizes = new List<long>();
@@ -56,12 +56,12 @@ namespace BackupEngine.Archive
             EnsureMaximumState(ArchiveState.PushingFiles);
             if (_state == ArchiveState.Initial)
             {
-                _filteredStream = DoFiltering(_hashedStream);
+                _filter = DoFiltering(_hashedStream);
                 _state = ArchiveState.PushingFiles;
             }
             _streamIds.Add(streamId);
             _streamSizes.Add(file.Length);
-            file.CopyTo(_filteredStream);
+            file.CopyTo(_filter);
         }
 
         public void AddFso(FileSystemObject fso)
@@ -70,23 +70,24 @@ namespace BackupEngine.Archive
             EnsureMaximumState(ArchiveState.PushingFsos);
             if (_state == ArchiveState.PushingFiles)
             {
-                _filteredStream.Flush();
-                _filteredStream.Dispose();
-                _filteredStream = DoFiltering(_hashedStream);
+                _filter.Flush();
+                _filter.Dispose();
+                _filter = DoFiltering(_hashedStream);
                 _state = ArchiveState.PushingFsos;
             }
-            var output = Serializer.SerializeToStream(fso);
-            _baseObjectEntrySizes.Add(output.Length);
-            output.CopyTo(_filteredStream);
+            var x0 = _filter.BytesIn;
+            Serializer.SerializeToStream(_filter, fso);
+            var x1 = _filter.BytesIn;
+            _baseObjectEntrySizes.Add(x1 - x0);
         }
 
         public void AddVersionManifest(VersionManifest versionManifest)
         {
             EnsureMinimumState(ArchiveState.PushingFsos);
             EnsureMaximumState(ArchiveState.PushingFsos);
-            _filteredStream.Flush();
-            _filteredStream.Dispose();
-            _filteredStream = null;
+            _filter.Flush();
+            _filter.Dispose();
+            _filter = null;
 
             versionManifest.ArchiveMetadata = new ArchiveMetadata
             {
@@ -97,12 +98,13 @@ namespace BackupEngine.Archive
             };
 
             long manifestLength;
-            using (var stream = DoFiltering(_hashedStream, false))
+            using (var filter = DoFiltering(_hashedStream, false))
             {
-                var output = Serializer.SerializeToStream(versionManifest);
-                manifestLength = output.Length;
-                output.CopyTo(stream);
-                stream.Flush();
+                var x0 = filter.BytesIn;
+                Serializer.SerializeToStream(filter, versionManifest);
+                var x1 = filter.BytesIn;
+                manifestLength = x1 - x0;
+                filter.Flush();
             }
             var bytes = BitConverter.GetBytes(manifestLength);
             _hashedStream.Write(bytes, 0, bytes.Length);
@@ -119,10 +121,10 @@ namespace BackupEngine.Archive
 
         public override void Dispose()
         {
-            if (_filteredStream != null)
+            if (_filter != null)
             {
-                _filteredStream.Dispose();
-                _filteredStream = null;
+                _filter.Dispose();
+                _filter = null;
             }
             if (_hashedStream != null)
             {
