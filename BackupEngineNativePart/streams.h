@@ -14,6 +14,15 @@ public:
 	virtual void flush() = 0;
 };
 
+class FileInputStream : public InStream{
+	HANDLE file;
+public:
+	FileInputStream(const wchar_t *path);
+	~FileInputStream();
+	size_t read(void *buffer, size_t size) override;
+	bool eof() override;
+};
+
 class FileOutputStream : public OutStream{
 	HANDLE file;
 public:
@@ -23,11 +32,33 @@ public:
 	void flush() override;
 };
 
-class FileInputStream : public InStream{
-	HANDLE file;
+class DotNetInputStream : public InStream{
 public:
-	FileInputStream(const wchar_t *path);
-	~FileInputStream();
+	typedef size_t (*read_callback_t)(void *, size_t);
+	typedef bool (*eof_callback_t)();
+	typedef void (*release_callback_t)();
+private:
+	read_callback_t read_callback;
+	eof_callback_t eof_callback;
+public:
+	DotNetInputStream(read_callback_t, eof_callback_t, release_callback_t);
+	~DotNetInputStream();
 	size_t read(void *buffer, size_t size) override;
 	bool eof() override;
+};
+
+class DotNetOutputStream : public OutStream{
+public:
+	typedef void (*write_callback_t)(const void *, size_t);
+	typedef void (*flush_callback_t)();
+	typedef void (*release_callback_t)();
+private:
+	write_callback_t write_callback;
+	flush_callback_t flush_callback;
+	release_callback_t release_callback;
+public:
+	DotNetOutputStream(write_callback_t, flush_callback_t, release_callback_t);
+	~DotNetOutputStream();
+	void write(const void *buffer, size_t size) override;
+	void flush() override;
 };
