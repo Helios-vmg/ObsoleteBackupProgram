@@ -9,7 +9,7 @@ using BackupEngine.Util.Streams;
 
 namespace BackupEngine.Archive
 {
-    public class ArchiveWrite : Archive
+    public class ArchiveWriter : Archive
     {
         private enum ArchiveState
         {
@@ -45,7 +45,7 @@ namespace BackupEngine.Archive
                 throw new InvalidProgramState();
         }
 
-        public ArchiveWrite(string newPath)
+        public ArchiveWriter(string newPath)
         {
             _fileStream = new FileStream(newPath, FileMode.Create, FileAccess.Write, FileShare.None);
             _hashedStream = new HashCalulatorOutputFilter(_fileStream, NewHash());

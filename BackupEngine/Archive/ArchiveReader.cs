@@ -9,13 +9,13 @@ using BackupEngine.Util.Streams;
 
 namespace BackupEngine.Archive
 {
-    public class ArchiveRead : Archive
+    public class ArchiveReader : Archive
     {
         private FileStream _stream;
         private List<ulong> _streamIds = new List<ulong>();
         private List<long> _streamSizes = new List<long>();
 
-        public ArchiveRead(string existingPath)
+        public ArchiveReader(string existingPath)
         {
             _stream = new FileStream(existingPath, FileMode.Open, FileAccess.Read, FileShare.Read);
         }
