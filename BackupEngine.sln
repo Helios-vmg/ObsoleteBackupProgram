@@ -28,6 +28,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{2D287126
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "lzma_test", "lzma_test\lzma_test.vcxproj", "{68FECE60-5439-4AA9-B58A-AF276B685810}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "unordered_writes_test", "unordered_writes_test\unordered_writes_test.vcxproj", "{FEFD8601-9D2A-4F8F-8981-C8EDC8D97138}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -70,6 +72,10 @@ Global
 		{68FECE60-5439-4AA9-B58A-AF276B685810}.Debug|x64.Build.0 = Debug|x64
 		{68FECE60-5439-4AA9-B58A-AF276B685810}.Release|x64.ActiveCfg = Release|x64
 		{68FECE60-5439-4AA9-B58A-AF276B685810}.Release|x64.Build.0 = Release|x64
+		{FEFD8601-9D2A-4F8F-8981-C8EDC8D97138}.Debug|x64.ActiveCfg = Debug|x64
+		{FEFD8601-9D2A-4F8F-8981-C8EDC8D97138}.Debug|x64.Build.0 = Debug|x64
+		{FEFD8601-9D2A-4F8F-8981-C8EDC8D97138}.Release|x64.ActiveCfg = Release|x64
+		{FEFD8601-9D2A-4F8F-8981-C8EDC8D97138}.Release|x64.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -81,5 +87,6 @@ Global
 		{F0F9AF1E-D5B5-4D72-804A-5380622FBDEA} = {3C231DE0-8A51-4A6C-9B38-ECF73313FC29}
 		{D3B0AD67-44D8-4B3D-BED9-CE1FD6DE2C5A} = {3C231DE0-8A51-4A6C-9B38-ECF73313FC29}
 		{68FECE60-5439-4AA9-B58A-AF276B685810} = {2D287126-F5F1-4413-8672-C5EA47615F1C}
+		{FEFD8601-9D2A-4F8F-8981-C8EDC8D97138} = {2D287126-F5F1-4413-8672-C5EA47615F1C}
 	EndGlobalSection
 EndGlobal
