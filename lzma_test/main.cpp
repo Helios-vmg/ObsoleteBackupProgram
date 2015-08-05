@@ -66,13 +66,13 @@ class LzmaOutputStream : public OutStream{
 				const char *msg;
 				switch (ret) {
 					case LZMA_MEM_ERROR:
-						msg = "Memory allocation failed.\n";
+						msg = "Memory allocation failed.";
 						break;
 					case LZMA_DATA_ERROR:
-						msg = "File size limits exceeded.\n";
+						msg = "File size limits exceeded.";
 						break;
 					default:
-						msg = "Unknown error.\n";
+						msg = "Unknown error.";
 						break;
 				}
 				throw LzmaOperationException(msg);
@@ -94,16 +94,16 @@ public:
 			const char *msg;
 			switch (ret) {
 				case LZMA_MEM_ERROR:
-					msg = "Memory allocation failed.\n";
+					msg = "Memory allocation failed.";
 					break;
 				case LZMA_OPTIONS_ERROR:
-					msg = "Specified compression level is not supported.\n";
+					msg = "Specified compression level is not supported.";
 					break;
 				case LZMA_UNSUPPORTED_CHECK:
-					msg = "Specified integrity check is not supported.\n";
+					msg = "Specified integrity check is not supported.";
 					break;
 				default:
-					msg = "Unknown error.\n";
+					msg = "Unknown error.";
 					break;
 			}
 			throw LzmaInitializationException(msg);
@@ -120,20 +120,24 @@ public:
 		lzma_end(&this->lstream);
 	}
 	void write(const void *buffer, size_t size) override{
+		lzma_ret ret;
 		do{
-			if (this->lstream.avail_in == 0 && size){
+			if (this->lstream.avail_in == 0){
+				if (!size)
+					break;
 				this->bytes_read += size;
 				this->lstream.next_in = (const uint8_t *)buffer;
 				this->lstream.avail_in = size;
 				size = 0;
 			}
-		}while (this->pass_data_to_stream(lzma_code(&this->lstream, this->action)));
+			ret = lzma_code(&this->lstream, this->action);
+		}while (this->pass_data_to_stream(ret));
 	}
 	void flush() override{
 		if (this->action != LZMA_RUN)
 			return;
 		this->action = LZMA_FINISH;
-		this->pass_data_to_stream(lzma_code(&this->lstream, this->action));
+		while (this->pass_data_to_stream(lzma_code(&this->lstream, this->action)));
 		this->stream->flush();
 	}
 };
@@ -264,24 +268,30 @@ public:
 	}
 };
 
+#define COMPRESS
+
 int main(int argc, char **argv){
 	if (argc < 3)
 		return -1;
-#if 1
-	std::shared_ptr<InStream> in_stream_0(new FileInputStream(argv[1]));
-	std::shared_ptr<InStream> in_stream(new LzmaInputStream(in_stream_0));
-	std::shared_ptr<OutStream> out_stream(new FileOutputStream(argv[2]));
+	try{
+#ifndef COMPRESS
+		std::shared_ptr<InStream> in_stream_0(new FileInputStream(argv[1]));
+		std::shared_ptr<InStream> in_stream(new LzmaInputStream(in_stream_0));
+		std::shared_ptr<OutStream> out_stream(new FileOutputStream(argv[2]));
 #else
-	std::shared_ptr<InStream> in_stream(new FileInputStream(argv[1]));
-	std::shared_ptr<OutStream> out_stream_0(new FileOutputStream(argv[2]));
-	bool mt = false;
-	std::shared_ptr<OutStream> out_stream(new LzmaOutputStream(out_stream_0, 1, false, mt));
+		std::shared_ptr<InStream> in_stream(new FileInputStream(argv[1]));
+		std::shared_ptr<OutStream> out_stream_0(new FileOutputStream(argv[2]));
+		bool mt = false;
+		std::shared_ptr<OutStream> out_stream(new LzmaOutputStream(out_stream_0, 1, false, mt));
 #endif
-	std::vector<char> buffer(buffer_size);
+		std::vector<char> buffer(buffer_size);
 
-	while (!in_stream->eof()){
-		auto read = in_stream->read(&buffer[0], buffer.size());
-		out_stream->write(&buffer[0], read);
+		while (!in_stream->eof()){
+			auto read = in_stream->read(&buffer[0], buffer.size());
+			out_stream->write(&buffer[0], read);
+		}
+	}catch (std::exception &e){
+		std::cerr << "std::exception::what(): " << e.what() << std::endl;
 	}
 	return 0;
 }
