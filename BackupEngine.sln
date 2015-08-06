@@ -30,6 +30,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "lzma_test", "lzma_test\lzma
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "unordered_writes_test", "unordered_writes_test\unordered_writes_test.vcxproj", "{FEFD8601-9D2A-4F8F-8981-C8EDC8D97138}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "managed_streams_test", "managed_streams_test\managed_streams_test.csproj", "{FA472ADE-14F5-4C04-A8EC-6963F80D1186}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -76,6 +78,10 @@ Global
 		{FEFD8601-9D2A-4F8F-8981-C8EDC8D97138}.Debug|x64.Build.0 = Debug|x64
 		{FEFD8601-9D2A-4F8F-8981-C8EDC8D97138}.Release|x64.ActiveCfg = Release|x64
 		{FEFD8601-9D2A-4F8F-8981-C8EDC8D97138}.Release|x64.Build.0 = Release|x64
+		{FA472ADE-14F5-4C04-A8EC-6963F80D1186}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{FA472ADE-14F5-4C04-A8EC-6963F80D1186}.Debug|x64.Build.0 = Debug|Any CPU
+		{FA472ADE-14F5-4C04-A8EC-6963F80D1186}.Release|x64.ActiveCfg = Release|Any CPU
+		{FA472ADE-14F5-4C04-A8EC-6963F80D1186}.Release|x64.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -88,5 +94,6 @@ Global
 		{D3B0AD67-44D8-4B3D-BED9-CE1FD6DE2C5A} = {3C231DE0-8A51-4A6C-9B38-ECF73313FC29}
 		{68FECE60-5439-4AA9-B58A-AF276B685810} = {2D287126-F5F1-4413-8672-C5EA47615F1C}
 		{FEFD8601-9D2A-4F8F-8981-C8EDC8D97138} = {2D287126-F5F1-4413-8672-C5EA47615F1C}
+		{FA472ADE-14F5-4C04-A8EC-6963F80D1186} = {2D287126-F5F1-4413-8672-C5EA47615F1C}
 	EndGlobalSection
 EndGlobal

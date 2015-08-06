@@ -34,12 +34,13 @@ public:
 
 class DotNetInputStream : public InStream{
 public:
-	typedef size_t (*read_callback_t)(void *, size_t);
+	typedef int (*read_callback_t)(std::uint8_t *, int);
 	typedef bool (*eof_callback_t)();
 	typedef void (*release_callback_t)();
 private:
 	read_callback_t read_callback;
 	eof_callback_t eof_callback;
+	release_callback_t release_callback;
 public:
 	DotNetInputStream(read_callback_t, eof_callback_t, release_callback_t);
 	~DotNetInputStream();
@@ -49,7 +50,7 @@ public:
 
 class DotNetOutputStream : public OutStream{
 public:
-	typedef void (*write_callback_t)(const void *, size_t);
+	typedef void (*write_callback_t)(const std::uint8_t *, int);
 	typedef void (*flush_callback_t)();
 	typedef void (*release_callback_t)();
 private:

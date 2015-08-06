@@ -2,6 +2,7 @@
 #define LZMA_API_STATIC
 #include <lzma.h>
 #include "lzma.h"
+#include "ExportedFunctions.h"
 
 bool LzmaOutputStream::pass_data_to_stream(lzma_ret ret){
 	if (!this->lstream.avail_out || ret == LZMA_STREAM_END) {
@@ -180,4 +181,15 @@ size_t LzmaInputStream::read(void *buffer, size_t size){
 
 bool LzmaInputStream::eof(){
 	return this->at_eof;
+}
+
+EXPORT_THIS void *filter_input_stream_through_lzma(void *p){
+	auto stream = (std::shared_ptr<InStream> *)p;
+	return new std::shared_ptr<InStream>(new LzmaInputStream(*stream));
+}
+
+EXPORT_THIS void *filter_output_stream_through_lzma(void *p){
+	auto stream = (std::shared_ptr<OutStream> *)p;
+	bool ignored;
+	return new std::shared_ptr<OutStream>(new LzmaOutputStream(*stream, ignored));
 }

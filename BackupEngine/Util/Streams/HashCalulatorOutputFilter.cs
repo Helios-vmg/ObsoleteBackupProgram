@@ -23,7 +23,7 @@ namespace BackupEngine.Util.Streams
             throw new InvalidOperationException();
         }
 
-        public override int Read(byte[] buffer, int offset, int count)
+        protected override int InternalRead(byte[] buffer, int offset, int count)
         {
             throw new InvalidOperationException();
         }

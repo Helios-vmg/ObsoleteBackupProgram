@@ -31,7 +31,7 @@ namespace BackupEngine.Archive
             start -= BitConverter.ToInt64(temp, 0);
             _stream.Seek(start, SeekOrigin.End);
             VersionManifest item1;
-            using (var filteredStream = DoFiltering(_stream))
+            using (var filteredStream = DoFiltering(_stream, false))
                 item1 = Serializer.Deserialize<VersionManifest>(filteredStream);
             _streamIds = new List<ulong>(item1.ArchiveMetadata.StreamIds);
             _streamSizes = new List<long>(item1.ArchiveMetadata.StreamSizes);

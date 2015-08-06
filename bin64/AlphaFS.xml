@@ -16884,15 +16884,11 @@
             <param name="errorCode">The error code encountered during the Copy or Move action.</param>
         </member>
         <member name="P:Alphaleonis.Win32.Filesystem.CopyMoveResult.ErrorCode">
-            <summary>
-              The error code encountered during the Copy or Move action.
-            </summary>
+            <summary>The error code encountered during the Copy or Move action.</summary>
             <value>0 (zero) indicates success.</value>
         </member>
         <member name="P:Alphaleonis.Win32.Filesystem.CopyMoveResult.ErrorMessage">
-            <summary>
-              The error message from the <see cref="P:Alphaleonis.Win32.Filesystem.CopyMoveResult.ErrorCode"/> that was encountered during the Copy or Move action.
-            </summary>
+            <summary>The error message from the <see cref="P:Alphaleonis.Win32.Filesystem.CopyMoveResult.ErrorCode"/> that was encountered during the Copy or Move action.</summary>
             <value>A message describing the error.</value>
         </member>
         <member name="P:Alphaleonis.Win32.Filesystem.CopyMoveResult.IsCanceled">
@@ -16904,9 +16900,7 @@
             <value><see langword="true"/> if this instance represents a directory; otherwise, <see langword="false"/>.</value>
         </member>
         <member name="P:Alphaleonis.Win32.Filesystem.CopyMoveResult.IsMove">
-            <summary>
-              Indicates if the action is a Copy or Move action.
-            </summary>
+            <summary>Indicates if the action is a Copy or Move action.</summary>
             <value><see langword="true"/> when action is Move. Otherwise <see langword="false"/>.</value>
         </member>
         <member name="P:Alphaleonis.Win32.Filesystem.CopyMoveResult.Source">

@@ -16,7 +16,6 @@ static void enumerate_volumes_helper(const wchar_t *volume, enumerate_volumes_ca
 	std::wstring temp = volume;
 	temp.resize(temp.size() - 1);
 	auto handle = CreateFileW(temp.c_str(), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr, OPEN_EXISTING, 0, nullptr);
-	DWORD error;
 	wchar_t volume_name[MAX_PATH * 2];
 	if (handle != INVALID_HANDLE_VALUE){
 		if (!GetVolumeInformationByHandleW(handle, volume_name, ARRAYSIZE(volume_name), nullptr, nullptr, nullptr, nullptr, 0))
@@ -67,13 +66,11 @@ EXPORT_THIS int enumerate_volumes(enumerate_volumes_callback_t cb){
 EXPORT_THIS int enumerate_mounted_paths(const wchar_t *volume_path, string_callback_t cb){
 	std::vector<wchar_t> buffer(64);
 	DWORD length;
-	BOOL success;
-	DWORD error;
 	while (true){
-		success = GetVolumePathNamesForVolumeNameW(volume_path, &buffer[0], buffer.size(), &length);
+		auto success = GetVolumePathNamesForVolumeNameW(volume_path, &buffer[0], (DWORD)buffer.size(), &length);
 		if (success)
 			break;
-		error = GetLastError();
+		auto error = GetLastError();
 		if (error == ERROR_MORE_DATA){
 			buffer.resize(length);
 			continue;

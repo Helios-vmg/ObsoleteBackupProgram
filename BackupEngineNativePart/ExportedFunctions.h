@@ -1,3 +1,5 @@
+#pragma once
+#include "streams.h"
 #define EXPORT_THIS extern "C" _declspec(dllexport)
 typedef void (*string_callback_t)(const wchar_t *);
 
@@ -35,3 +37,12 @@ EXPORT_THIS int release_snapshot(void *object);
 typedef void(*enumerate_volumes_callback_t)(const wchar_t *volume_path, const wchar_t *volume_label, unsigned drive_type);
 EXPORT_THIS int enumerate_volumes(enumerate_volumes_callback_t);
 EXPORT_THIS int enumerate_mounted_paths(const wchar_t *volume_path, string_callback_t cb);
+EXPORT_THIS void *encapsulate_dot_net_input_stream(DotNetInputStream::read_callback_t, DotNetInputStream::eof_callback_t, DotNetInputStream::release_callback_t);
+EXPORT_THIS void *encapsulate_dot_net_output_stream(DotNetOutputStream::write_callback_t, DotNetOutputStream::flush_callback_t, DotNetOutputStream::release_callback_t);
+EXPORT_THIS int read_from_input_stream(void *stream, std::uint8_t *buffer, int offset, int length);
+EXPORT_THIS void write_to_output_stream(void *stream, std::uint8_t *buffer, int offset, int length);
+EXPORT_THIS void flush_output_stream(void *stream);
+EXPORT_THIS void release_input_stream(void *);
+EXPORT_THIS void release_output_stream(void *);
+EXPORT_THIS void *filter_input_stream_through_lzma(void *);
+EXPORT_THIS void *filter_output_stream_through_lzma(void *);

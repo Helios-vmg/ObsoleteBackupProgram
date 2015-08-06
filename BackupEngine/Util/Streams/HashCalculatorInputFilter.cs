@@ -22,7 +22,7 @@ namespace BackupEngine.Util.Streams
             throw new InvalidOperationException();
         }
 
-        public override int Read(byte[] buffer, int offset, int count)
+        protected override int InternalRead(byte[] buffer, int offset, int count)
         {
             var ret = Stream.Read(buffer, offset, count);
             Hash.TransformBlock(buffer, offset, ret, null, 0);

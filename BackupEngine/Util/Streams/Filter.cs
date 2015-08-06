@@ -2,7 +2,7 @@
 
 namespace BackupEngine.Util.Streams
 {
-    public abstract class Filter : Stream
+    public abstract class Filter : EncapsulatableInputStream
     {
         protected Stream Stream;
         protected bool KeepOpen;
