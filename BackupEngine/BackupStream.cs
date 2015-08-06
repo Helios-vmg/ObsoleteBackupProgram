@@ -2,8 +2,6 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using BackupEngine.FileSystem;
 using ProtoBuf;
 
@@ -28,8 +26,8 @@ namespace BackupEngine
         public readonly List<FileSystemObject> FileSystemObjects = new List<FileSystemObject>();
         public bool Restored { get; protected set; }
 
-        public abstract long VirtualSize { get; }
-        public abstract long PhysicalSize { get; }
+        public abstract long VirtualSizeProp { get; }
+        public abstract long PhysicalSizeProp { get; }
 
         public abstract void GetDependencies(HashSet<int> versionDependencies);
         internal abstract Stream GetStream(VersionForRestore version);
@@ -44,20 +42,20 @@ namespace BackupEngine
         }
 
         [ProtoMember(2)]
-        public long _virtualSize;
+        public long VirtualSize;
         [ProtoMember(3)]
-        public long _physicalSize;
+        public long PhysicalSize;
         [ProtoMember(4)]
         public string ZipPath;
 
-        public override long VirtualSize
+        public override long VirtualSizeProp
         {
-            get { return _virtualSize; }
+            get { return VirtualSize; }
         }
 
-        public override long PhysicalSize
+        public override long PhysicalSizeProp
         {
-            get { return _physicalSize; }
+            get { return PhysicalSize; }
         }
 
         public override void GetDependencies(HashSet<int> versionDependencies){}
@@ -90,7 +88,7 @@ namespace BackupEngine
 
         public List<Block> Blocks = new List<Block>();
 
-        public override long VirtualSize
+        public override long VirtualSizeProp
         {
             get
             {
@@ -98,7 +96,7 @@ namespace BackupEngine
             }
         }
 
-        public override long PhysicalSize
+        public override long PhysicalSizeProp
         {
             get
             {

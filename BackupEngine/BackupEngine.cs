@@ -63,16 +63,6 @@ namespace BackupEngine
         //This is used to identify separate differential chains.
         public ulong NextDifferentialChainUniqueId = InvalidDifferentialChainId + 1;
 
-        private InstantiationPurpose _purpose = InstantiationPurpose.None;
-
-        private struct Range
-        {
-            public ulong Begin, End;
-        }
-
-        private List<Range> _streamRanges;
-        private List<Range> _differentialRanges;
-
         //If followLinkTargets is set, the target locations of links that lead
         //to locations not covered by any source locations are added as source
         //locations.
@@ -195,55 +185,9 @@ namespace BackupEngine
             }
         }
 
-        private void InitializeRanges()
-        {
-            if ((_purpose & (InstantiationPurpose.RestoreBackup | InstantiationPurpose.TestBackup)) == 0 || _streamRanges != null)
-                return;
-
-            _streamRanges = new List<Range>();
-            _differentialRanges = new List<Range>();
-
-            foreach (var version in Versions)
-            {
-                var versionPath = GetVersionPath(version);
-                Range streamRange, diffRange;
-                try
-                {
-                    var last = version == Versions.Back();
-                    VersionManifest manifest;
-                    using (var zip = new ZipFile(versionPath))
-                        manifest = OpenVersionManifest(zip, versionPath);
-                    if (manifest.VersionNumber != version)
-                        throw new InvalidBackup(TargetLocation, "version " + version + " has the manifest of version " + manifest.VersionNumber);
-                    streamRange.Begin = manifest.FirstStreamUniqueId;
-                    streamRange.End = manifest.NextStreamUniqueId;
-                    diffRange.Begin = manifest.FirstDifferentialChainUniqueId;
-                    diffRange.End = manifest.NextDifferentialChainUniqueId;
-                    if (!manifest.VersionDependencies.All(x => Versions.Contains(x)))
-                        throw new InvalidBackup(TargetLocation, "version " + version + " depends on missing version(s)");
-                    if (last)
-                    {
-                        NextStreamUniqueId = streamRange.End;
-                        NextDifferentialChainUniqueId = diffRange.End;
-                    }
-                }
-                catch (InvalidBackup)
-                {
-                    throw;
-                }
-                catch (Exception e)
-                {
-                    throw new InvalidBackup(TargetLocation, e.Message);
-                }
-                _streamRanges.Add(streamRange);
-                _differentialRanges.Add(diffRange);
-            }
-        }
-
-        protected BaseBackupEngine(string targetPath, InstantiationPurpose purpose = InstantiationPurpose.None)
+        protected BaseBackupEngine(string targetPath)
         {
             TargetLocation = targetPath;
-            _purpose = purpose;
             if (!Directory.Exists(targetPath))
             {
                 if (Alphaleonis.Win32.Filesystem.File.Exists(targetPath))
@@ -398,7 +342,7 @@ namespace BackupEngine
                 if (follow && !string.IsNullOrEmpty(x.Target))
                 {
                     throw new NotImplementedException("followLinkTargets not yet supported.");
-                    //forLaterCheck.Add(x.Target);
+                    forLaterCheck.Add(x.Target);
                 }
                 return ret;
             };
@@ -458,8 +402,6 @@ namespace BackupEngine
 
         public void RestoreBackup()
         {
-            _purpose |= InstantiationPurpose.RestoreBackup;
-
             VersionForRestore latestVersion = null;
             try
             {
@@ -512,8 +454,8 @@ namespace BackupEngine
             var ret = new FullStream
             {
                 UniqueId = fso.StreamUniqueId,
-                _physicalSize = fso.Size,
-                _virtualSize = fso.Size,
+                PhysicalSize = fso.Size,
+                VirtualSize = fso.Size,
                 ZipPath = fso.ZipPath,
             };
             ret.FileSystemObjects.Add(fso);
@@ -712,7 +654,7 @@ namespace BackupEngine
                 });
         }
 
-        private bool _baseObjectsSet = false;
+        private bool _baseObjectsSet;
         private readonly List<FileSystemObject> _oldObjects = new List<FileSystemObject>();
         private readonly Dictionary<string, FileSystemObject> _oldObjectsDict = new Dictionary<string, FileSystemObject>();
 
@@ -827,8 +769,8 @@ namespace BackupEngine
                     newStream = new FullStream
                         {
                             UniqueId = fso.StreamUniqueId,
-                            _physicalSize = fso.Size,
-                            _virtualSize = fso.Size,
+                            PhysicalSize = fso.Size,
+                            VirtualSize = fso.Size,
                             ZipPath = fso.ZipPath,
                         };
                     newStream.FileSystemObjects.Add(fso);

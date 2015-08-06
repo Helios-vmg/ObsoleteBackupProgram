@@ -1,15 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.ComponentModel;
-using System.Diagnostics;
 using System.IO;
-using System.Linq;
 using System.Security.Cryptography;
-using System.Text;
-using System.Threading.Tasks;
 using BackupEngine.FileSystem.FileSystemObjects.Exceptions;
 using BackupEngine.Util;
-using Ionic.Crc;
 using ProtoBuf;
 
 namespace BackupEngine.FileSystem.FileSystemObjects
@@ -79,7 +73,7 @@ namespace BackupEngine.FileSystem.FileSystemObjects
 
         public override byte[] ComputeHash(HashType type)
         {
-            byte[] digest = null;
+            byte[] digest;
             if (Hashes.TryGetValue(type, out digest))
                 return digest;
             try
@@ -189,7 +183,7 @@ namespace BackupEngine.FileSystem.FileSystemObjects
     [ProtoInclude(1009, typeof(FileReparsePointFso))]
     public class FileSymlinkFso : FilishFso
     {
-        public FileSymlinkFso() : base()
+        public FileSymlinkFso()
         {
             
         }

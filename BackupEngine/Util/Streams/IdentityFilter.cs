@@ -5,7 +5,7 @@ namespace BackupEngine.Util.Streams
 {
     public class IdentityFilter : Filter
     {
-        private long _bytesProcessed = 0;
+        private long _bytesProcessed;
 
         public IdentityFilter(Stream stream, bool keepOpen = true):base(stream, keepOpen)
         {

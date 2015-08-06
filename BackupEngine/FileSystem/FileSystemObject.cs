@@ -226,14 +226,14 @@ namespace BackupEngine.FileSystem
             }
         }
 
-        private BaseBackupEngine _backupEngine = null;
+        private BaseBackupEngine _backupEngine;
 
         protected BaseBackupEngine BackupEngine
         {
             get { return _backupEngine ?? (Parent != null ? Parent.BackupEngine : null); }
         }
-        private IErrorReporter _reporter = null;
-        private Func<FileSystemObject, BackupMode> _backupModeMap = null;
+        private IErrorReporter _reporter;
+        private Func<FileSystemObject, BackupMode> _backupModeMap;
 
         public abstract void Iterate(Action<FileSystemObject> f);
 

@@ -2,11 +2,7 @@
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.IO;
-using System.Linq;
 using System.Runtime.InteropServices;
-using System.Text;
-using System.Threading.Tasks;
-using BackupEngine.FileSystem.FileSystemObjects;
 
 namespace BackupEngine.FileSystem
 {
@@ -103,7 +99,7 @@ namespace BackupEngine.FileSystem
 
         public static Guid GetFileGuid(string path)
         {
-            var ret = new Guid();
+            Guid ret;
             var result = get_file_guid(path, out ret);
             switch (result)
             {

@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-using System.Threading.Tasks;
 
 namespace BackupEngine.Util
 {
@@ -115,14 +114,14 @@ namespace BackupEngine.Util
             return a.DecomposePath().PathMatch(b.DecomposePath());
         }
 
-        public static bool PathMatch(this IEnumerable<string> a, IEnumerable<string> b)
+        public static bool PathMatch(this IEnumerable<string> pathA, IEnumerable<string> pathB)
         {
-            var A = a.ToArray();
-            var B = b.ToArray();
-            if (A.Length != B.Length)
+            var arrayA = pathA.ToArray();
+            var arrayB = pathB.ToArray();
+            if (arrayA.Length != arrayB.Length)
                 return false;
-            for (int i = A.Length; i-- != 0;)
-                if (!A[i].Equals(B[i], StringComparison.CurrentCultureIgnoreCase))
+            for (int i = arrayA.Length; i-- != 0;)
+                if (!arrayA[i].Equals(arrayB[i], StringComparison.CurrentCultureIgnoreCase))
                     return false;
             return true;
         }
