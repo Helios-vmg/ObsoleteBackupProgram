@@ -1,7 +1,7 @@
 #pragma once
 #include "streams.h"
 
-const size_t default_buffer_size = 1 << 20;
+const size_t default_buffer_size = 1 << 12;
 
 class LzmaInitializationException : public std::exception{
 	std::string message;
