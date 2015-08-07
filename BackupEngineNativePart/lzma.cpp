@@ -3,6 +3,12 @@
 #include <lzma.h>
 #include "lzma.h"
 #include "ExportedFunctions.h"
+#include "MiscFunctions.h"
+//#include <process.h>
+
+//extern "C" uintptr_t __cdecl _imp__beginthreadex(void * _Security, unsigned _StackSize, unsigned(__stdcall * _StartAddress) (void *), void * _ArgList, unsigned _InitFlag, unsigned * _ThrdAddr){
+//	return _beginthreadex(_Security, _StackSize, _StartAddress, _ArgList, _InitFlag, _ThrdAddr);
+//}
 
 bool LzmaOutputStream::pass_data_to_stream(lzma_ret ret){
 	if (!this->lstream.avail_out || ret == LZMA_STREAM_END) {
@@ -39,8 +45,20 @@ bool LzmaOutputStream::pass_data_to_stream(lzma_ret ret){
 
 LzmaOutputStream::LzmaOutputStream(std::shared_ptr<OutStream> wrapped_stream, bool &multithreaded, int compression_level, size_t buffer_size, bool extreme_mode){
 	this->stream = wrapped_stream;
-	multithreaded = false;
 	this->lstream = LZMA_STREAM_INIT;
+
+	auto f = !multithreaded ? &LzmaOutputStream::initialize_single_threaded : &LzmaOutputStream::initialize_multithreaded;
+	multithreaded = (this->*f)(compression_level, buffer_size, extreme_mode);
+	
+	this->action = LZMA_RUN;
+	this->output_buffer.resize(buffer_size);
+	this->lstream.next_out = &this->output_buffer[0];
+	this->lstream.avail_out = this->output_buffer.size();
+	this->bytes_read = 0;
+	this->bytes_written = 0;
+}
+
+bool LzmaOutputStream::initialize_single_threaded(int compression_level, size_t buffer_size, bool extreme_mode){
 	uint32_t preset = compression_level;
 	if (extreme_mode)
 		preset |= LZMA_PRESET_EXTREME;
@@ -48,27 +66,64 @@ LzmaOutputStream::LzmaOutputStream(std::shared_ptr<OutStream> wrapped_stream, bo
 	if (ret != LZMA_OK){
 		const char *msg;
 		switch (ret) {
-		case LZMA_MEM_ERROR:
-			msg = "Memory allocation failed.";
-			break;
-		case LZMA_OPTIONS_ERROR:
-			msg = "Specified compression level is not supported.";
-			break;
-		case LZMA_UNSUPPORTED_CHECK:
-			msg = "Specified integrity check is not supported.";
-			break;
-		default:
-			msg = "Unknown error.";
-			break;
+			case LZMA_MEM_ERROR:
+				msg = "Memory allocation failed.";
+				break;
+			case LZMA_OPTIONS_ERROR:
+				msg = "Specified compression level is not supported.";
+				break;
+			case LZMA_UNSUPPORTED_CHECK:
+				msg = "Specified integrity check is not supported.";
+				break;
+			default:
+				msg = "Unknown error.";
+				break;
 		}
 		throw LzmaInitializationException(msg);
 	}
-	this->action = LZMA_RUN;
-	this->output_buffer.resize(buffer_size);
-	this->lstream.next_out = &this->output_buffer[0];
-	this->lstream.avail_out = this->output_buffer.size();
-	this->bytes_read = 0;
-	this->bytes_written = 0;
+	return false;
+}
+
+bool LzmaOutputStream::initialize_multithreaded(int compression_level, size_t buffer_size, bool extreme_mode){
+	lzma_mt mt;
+	zero_struct(mt);
+	mt.flags = 0;
+	mt.block_size = 0;
+	mt.timeout = 0;
+	mt.preset = compression_level;
+	if (extreme_mode)
+		mt.preset |= LZMA_PRESET_EXTREME;
+	mt.filters = 0;
+	mt.check = LZMA_CHECK_NONE;
+	mt.threads = lzma_cputhreads();
+	if (!mt.threads){
+		this->initialize_single_threaded(compression_level, buffer_size, extreme_mode);
+		return false;
+	}
+	
+	mt.threads = std::max(mt.threads, 4U);
+
+	lzma_ret ret = lzma_stream_encoder_mt(&this->lstream, &mt);
+
+	if (ret != LZMA_OK){
+		const char *msg;
+		switch (ret) {
+			case LZMA_MEM_ERROR:
+				msg = "Memory allocation failed.";
+				break;
+			case LZMA_OPTIONS_ERROR:
+				msg = "Specified filter chain or compression level is not supported.";
+				break;
+			case LZMA_UNSUPPORTED_CHECK:
+				msg = "Specified integrity check is not supported.";
+				break;
+			default:
+				msg = "Unknown error.";
+				break;
+		}
+		throw LzmaInitializationException(msg);
+	}
+	return true;
 }
 
 LzmaOutputStream::~LzmaOutputStream(){
@@ -190,6 +245,9 @@ EXPORT_THIS void *filter_input_stream_through_lzma(void *p){
 
 EXPORT_THIS void *filter_output_stream_through_lzma(void *p){
 	auto stream = (std::shared_ptr<OutStream> *)p;
-	bool ignored;
-	return new std::shared_ptr<OutStream>(new LzmaOutputStream(*stream, ignored));
+	bool mt = true;
+	auto ret = new std::shared_ptr<OutStream>(new LzmaOutputStream(*stream, mt));
+	if (mt)
+		std::cout << "Running in multithreaded mode.\n";
+	return ret;
 }

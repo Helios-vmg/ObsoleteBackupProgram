@@ -29,9 +29,11 @@ class LzmaOutputStream : public OutStream{
 	uint64_t bytes_read,
 		bytes_written;
 
+	bool initialize_single_threaded(int, size_t, bool);
+	bool initialize_multithreaded(int, size_t, bool);
 	bool pass_data_to_stream(lzma_ret ret);
 public:
-	LzmaOutputStream(std::shared_ptr<OutStream> wrapped_stream, bool &multithreaded, int compression_level = 5, size_t buffer_size = default_buffer_size, bool extreme_mode = false);
+	LzmaOutputStream(std::shared_ptr<OutStream> wrapped_stream, bool &multithreaded, int compression_level = 1, size_t buffer_size = default_buffer_size, bool extreme_mode = false);
 	~LzmaOutputStream();
 	void write(const void *buffer, size_t size) override;
 	void flush() override;
