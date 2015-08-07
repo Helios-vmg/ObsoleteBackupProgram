@@ -79,7 +79,7 @@ namespace BackupEngine.Util.Streams
         protected override int InternalRead(byte[] buffer, int offset, int count)
         {
             var ret = Stream.Read(buffer, offset, count);
-            BytesIn += ret;
+            BytesRead += ret;
             return ret;
         }
     }

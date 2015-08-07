@@ -342,7 +342,7 @@ namespace BackupEngine
                 if (follow && !string.IsNullOrEmpty(x.Target))
                 {
                     throw new NotImplementedException("followLinkTargets not yet supported.");
-                    forLaterCheck.Add(x.Target);
+                    //forLaterCheck.Add(x.Target);
                 }
                 return ret;
             };

@@ -6,7 +6,7 @@ namespace BackupEngine.Util.Streams
     {
         protected Stream Stream;
         protected bool KeepOpen;
-        public long BytesIn { get; protected set; }
+        public long BytesRead { get; protected set; }
 
         protected InputFilter(Stream stream, bool keepOpen = true)
         {
@@ -32,7 +32,7 @@ namespace BackupEngine.Util.Streams
         protected override int InternalRead(byte[] buffer, int offset, int count)
         {
             var ret = Stream.Read(buffer, offset, count);
-            BytesIn += ret;
+            BytesRead += ret;
             return ret;
         }
     }
@@ -41,7 +41,7 @@ namespace BackupEngine.Util.Streams
     {
         protected Stream Stream;
         protected bool KeepOpen;
-        public long BytesOut { get; protected set; }
+        public long BytesWritten { get; protected set; }
 
         protected OutputFilter(Stream stream, bool keepOpen = true)
         {

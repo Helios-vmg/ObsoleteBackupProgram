@@ -1,6 +1,7 @@
 ﻿using System;
 using System.IO;
 using System.Security.Cryptography;
+using BackupEngine.Util;
 using BackupEngine.Util.Streams;
 
 namespace managed_streams_test
@@ -26,8 +27,8 @@ namespace managed_streams_test
                     using (var lzma = new LzmaOutputFilter(outputFile, false))
                         filter.CopyTo(lzma);
                 }
-                sha2.TransformFinalBlock(new byte[0], 0, 0);
-                Console.WriteLine("\n" + BitConverter.ToString(sha2.Hash).Replace("-", "").ToLower());
+                sha2.FinishHashing();
+                Console.WriteLine("\n" + sha2.Hash.ToHexString());
             }
             Console.WriteLine("Decompressing...");
             {
@@ -43,8 +44,8 @@ namespace managed_streams_test
                     using (var progressOutputFilter = new ProgressOutputFilter(calculator, report.OutputProgressCallback, 0, false))
                         lzma.CopyTo(progressOutputFilter);
                 }
-                sha2.TransformFinalBlock(new byte[0], 0, 0);
-                Console.WriteLine("\n" + BitConverter.ToString(sha2.Hash).Replace("-", "").ToLower());
+                sha2.FinishHashing();
+                Console.WriteLine("\n" + sha2.Hash.ToHexString());
             }
         }
     }

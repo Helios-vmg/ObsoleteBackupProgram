@@ -5,6 +5,7 @@ using System.Security.Cryptography;
 using BackupEngine.FileSystem;
 using BackupEngine.FileSystem.FileSystemObjects.Exceptions;
 using BackupEngine.Serialization;
+using BackupEngine.Util;
 using BackupEngine.Util.Streams;
 
 namespace BackupEngine.Archive
@@ -21,7 +22,7 @@ namespace BackupEngine.Archive
 
         private FileStream _fileStream;
         private Stream _hashedStream;
-        private InputFilter _inputFilter;
+        private OutputFilter _outputFilter;
         private ArchiveState _state = ArchiveState.Initial;
         private readonly List<ulong> _streamIds = new List<ulong>();
         private readonly List<long> _streamSizes = new List<long>();
@@ -56,12 +57,12 @@ namespace BackupEngine.Archive
             EnsureMaximumState(ArchiveState.PushingFiles);
             if (_state == ArchiveState.Initial)
             {
-                _inputFilter = DoFiltering(_hashedStream);
+                _outputFilter = DoOutputFiltering(_hashedStream);
                 _state = ArchiveState.PushingFiles;
             }
             _streamIds.Add(streamId);
             _streamSizes.Add(file.Length);
-            file.CopyTo(_inputFilter);
+            file.CopyTo(_outputFilter);
         }
 
         public void AddFso(FileSystemObject fso)
@@ -70,14 +71,14 @@ namespace BackupEngine.Archive
             EnsureMaximumState(ArchiveState.PushingFsos);
             if (_state == ArchiveState.PushingFiles)
             {
-                _inputFilter.Flush();
-                _inputFilter.Dispose();
-                _inputFilter = DoFiltering(_hashedStream);
+                _outputFilter.Flush();
+                _outputFilter.Dispose();
+                _outputFilter = DoOutputFiltering(_hashedStream);
                 _state = ArchiveState.PushingFsos;
             }
-            var x0 = _inputFilter.BytesIn;
-            Serializer.SerializeToStream(_inputFilter, fso);
-            var x1 = _inputFilter.BytesIn;
+            var x0 = _outputFilter.BytesWritten;
+            Serializer.SerializeToStream(_outputFilter, fso);
+            var x1 = _outputFilter.BytesWritten;
             _baseObjectEntrySizes.Add(x1 - x0);
         }
 
@@ -85,9 +86,9 @@ namespace BackupEngine.Archive
         {
             EnsureMinimumState(ArchiveState.PushingFsos);
             EnsureMaximumState(ArchiveState.PushingFsos);
-            _inputFilter.Flush();
-            _inputFilter.Dispose();
-            _inputFilter = null;
+            _outputFilter.Flush();
+            _outputFilter.Dispose();
+            _outputFilter = null;
 
             versionManifest.ArchiveMetadata = new ArchiveMetadata
             {
@@ -98,11 +99,11 @@ namespace BackupEngine.Archive
             };
 
             long manifestLength;
-            using (var filter = DoFiltering(_hashedStream, false))
+            using (var filter = DoOutputFiltering(_hashedStream, false))
             {
-                var x0 = filter.BytesIn;
+                var x0 = filter.BytesWritten;
                 Serializer.SerializeToStream(filter, versionManifest);
-                var x1 = filter.BytesIn;
+                var x1 = filter.BytesWritten;
                 manifestLength = x1 - x0;
                 filter.Flush();
             }
@@ -110,7 +111,7 @@ namespace BackupEngine.Archive
             _hashedStream.Write(bytes, 0, bytes.Length);
             _hashedStream.Dispose();
             _hashedStream = null;
-            _hash.TransformFinalBlock(new byte[0], 0, 0);
+            _hash.FinishHashing();
             bytes = _hash.Hash;
             _fileStream.Write(bytes, 0, bytes.Length);
             _fileStream.Flush();
@@ -121,10 +122,10 @@ namespace BackupEngine.Archive
 
         public override void Dispose()
         {
-            if (_inputFilter != null)
+            if (_outputFilter != null)
             {
-                _inputFilter.Dispose();
-                _inputFilter = null;
+                _outputFilter.Dispose();
+                _outputFilter = null;
             }
             if (_hashedStream != null)
             {

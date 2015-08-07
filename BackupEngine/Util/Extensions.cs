@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Security.Cryptography;
 
 namespace BackupEngine.Util
 {
@@ -56,6 +57,21 @@ namespace BackupEngine.Util
                     f(e1.Current, e2.Current);
                 }
             }
+        }
+
+        public static string ToHexString(this byte[] buffer)
+        {
+            return BitConverter.ToString(buffer).Replace("-", string.Empty).ToLower();
+        }
+
+        public static void HashNextBlock(this HashAlgorithm hash, byte[] buffer)
+        {
+            hash.TransformBlock(buffer, 0, buffer.Length, null, 0);
+        }
+
+        public static void FinishHashing(this HashAlgorithm hash)
+        {
+            hash.TransformFinalBlock(new byte[0], 0, 0);
         }
     }
 }
