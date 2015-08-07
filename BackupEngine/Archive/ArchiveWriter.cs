@@ -2,11 +2,13 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Security.Cryptography;
+using Alphaleonis.Win32.Filesystem;
 using BackupEngine.FileSystem;
 using BackupEngine.FileSystem.FileSystemObjects.Exceptions;
 using BackupEngine.Serialization;
 using BackupEngine.Util;
 using BackupEngine.Util.Streams;
+using File = Alphaleonis.Win32.Filesystem.File;
 
 namespace BackupEngine.Archive
 {
@@ -20,6 +22,7 @@ namespace BackupEngine.Archive
             Final = 3,
         }
 
+        private KernelTransaction _transaction;
         private FileStream _fileStream;
         private Stream _hashedStream;
         private OutputFilter _outputFilter;
@@ -48,7 +51,8 @@ namespace BackupEngine.Archive
 
         public ArchiveWriter(string newPath)
         {
-            _fileStream = new FileStream(newPath, FileMode.Create, FileAccess.Write, FileShare.None);
+            _transaction = new KernelTransaction();
+            _fileStream = File.OpenTransacted(_transaction, newPath, FileMode.Create, FileAccess.Write, FileShare.None);
             _hashedStream = new HashCalculatorOutputFilter(_fileStream, NewHash());
         }
 
@@ -116,7 +120,10 @@ namespace BackupEngine.Archive
             _fileStream.Write(bytes, 0, bytes.Length);
             _fileStream.Flush();
             _fileStream.Dispose();
+            _transaction.Commit();
             _fileStream = null;
+            _transaction.Dispose();
+            _transaction = null;
             _state = ArchiveState.Final;
         }
 
@@ -136,6 +143,11 @@ namespace BackupEngine.Archive
             {
                 _fileStream.Dispose();
                 _fileStream = null;
+            }
+            if (_transaction != null)
+            {
+                _transaction.Dispose();
+                _transaction = null;
             }
         }
     }

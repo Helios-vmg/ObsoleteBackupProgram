@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
 using System.Text.RegularExpressions;
+using BackupEngine.Archive;
 using BackupEngine.FileSystem;
 using BackupEngine.FileSystem.FileSystemObjects;
 using BackupEngine.FileSystem.FileSystemObjects.Exceptions;
@@ -104,7 +105,7 @@ namespace BackupEngine
 
         internal string GetVersionPath(int version)
         {
-            return Path.Combine(TargetLocation, string.Format("version{0}.zip", version.ToString("00000000")));
+            return Path.Combine(TargetLocation, string.Format("version{0}.arc", version.ToString("00000000")));
         }
 
         protected string GetVersionDigestPath(int version)
@@ -359,7 +360,7 @@ namespace BackupEngine
         private void CreateInitialVersion(DateTime startTime)
         {
             SetBaseObjects();
-            ComputeAllHashes();
+            //ComputeAllHashes();
             GenerateFirstZip(startTime);
         }
 
@@ -464,11 +465,9 @@ namespace BackupEngine
 
         private void GenerateZip(DateTime startTime, Func<FileSystemObject, HashSet<Guid>, BackupStream> streamGenerator, int versionNumber = 0, ulong firstStreamId = 1, ulong firstDiffId = 1)
         {
-            var zipPath = GetVersionPath(versionNumber);
-            using (var zip = new ZipFile(zipPath))
+            var versionPath = GetVersionPath(versionNumber);
+            using (var archive = new ArchiveWriter(versionPath))
             {
-                zip.UseZip64WhenSaving = Zip64Option.AsNecessary;
-
                 var streamDict = GenerateStreams(streamGenerator);
                 var versionDependencies = new HashSet<int>();
 
@@ -477,43 +476,35 @@ namespace BackupEngine
                     var fso = BaseObjects[kv.Key];
                     kv.Value.ForEach(x => x.FileSystemObjects.ForEach(y => y.BackupStream = x));
                     fso.Iterate(x => GetDependencies(x, versionDependencies));
-                    //Add FileSystemObjects.dat
-                    {
-                        var entry = zip.AddEntry(GetFileSystemObjectsDatPath(kv.Key),
-                            x => Serializer.SerializeToStream(fso),
-                            (x, y) => { if (y != null) y.Close(); });
-                        entry.CompressionLevel = (CompressionLevel) CompressionLevelForStructuralFiles;
-                    }
-                    //Add BackupStreams.dat
-                    {
-                        var entry = zip.AddEntry(GetBackupStreamsDatPath(kv.Key),
-                            x => Serializer.SerializeToStream(Streams),
-                            (x, y) => { if (y != null) y.Close(); });
-                        entry.CompressionLevel = (CompressionLevel) CompressionLevelForStructuralFiles;
-                    }
 
-                    var root = GetEntryRoot(kv.Key);
-                    kv.Value.ForEach(x => AddToZip(zip, root, x.FileSystemObjects[0]));
+                    foreach (var backupStream in kv.Value)
+                    {
+                        Console.WriteLine(backupStream.FileSystemObjects[0].Path);
+                        archive.AddFile(backupStream.UniqueId, backupStream.FileSystemObjects[0].OpenForExclusiveRead());
+                    }
                 }
 
-                AddVersionManifest(startTime, zip, versionDependencies, versionNumber, firstStreamId, firstDiffId);
+                foreach (var fso in BaseObjects)
+                {
+                    Console.Write(fso.BasePath + " -> ");
+                    fso.BasePath = MapPathBack(fso.BasePath);
+                    Console.WriteLine(fso.BasePath);
+                }
 
-                zip.Save();
-            }
+// ReSharper disable once AccessToDisposedClosure
+                streamDict.Keys.ForEach(x => archive.AddFso(BaseObjects[x]));
 
-            var hashPath = GetVersionDigestPath(versionNumber);
-
-            Console.WriteLine("Hashing result .zip...");
-
-            byte[] digest;
-            using (var file = Alphaleonis.Win32.Filesystem.File.Open(zipPath, FileMode.Open, FileAccess.Read, FileShare.Read))
-            {
-                digest = SHA256.Create().ComputeHash(file);
-            }
-
-            using (var file = new StreamWriter(Alphaleonis.Win32.Filesystem.File.OpenWrite(hashPath)))
-            {
-                file.Write(Convert.ToBase64String(digest));
+                archive.AddVersionManifest(new VersionManifest
+                {
+                    CreationTime = startTime,
+                    VersionNumber = versionNumber,
+                    EntryCount = BaseObjects.Count,
+                    FirstStreamUniqueId = firstStreamId,
+                    FirstDifferentialChainUniqueId = firstDiffId,
+                    NextStreamUniqueId = NextStreamUniqueId,
+                    NextDifferentialChainUniqueId = NextDifferentialChainUniqueId,
+                    VersionDependencies = versionDependencies.Sorted().ToList(),
+                });
             }
         }
 

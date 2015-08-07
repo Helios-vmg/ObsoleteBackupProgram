@@ -7,6 +7,5 @@
             var processor = new LineProcessor(args);
             processor.Process();
         }
-
     }
 }
