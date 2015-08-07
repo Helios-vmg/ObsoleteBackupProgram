@@ -80,8 +80,7 @@
     <Compile Include="Util\IntegerOperations.cs" />
     <Compile Include="Util\Streams\BoundedStream.cs" />
     <Compile Include="Util\Streams\EncapsulatableStream.cs" />
-    <Compile Include="Util\Streams\Filter.cs" />
-    <Compile Include="Util\Streams\HashCalculatorFilter.cs" />
+    <Compile Include="Util\Streams\InputFilter.cs" />
     <Compile Include="Util\Streams\HashCalculatorInputFilter.cs" />
     <Compile Include="Util\Streams\HashCalulatorOutputFilter.cs" />
     <Compile Include="Util\Streams\IdentityFilter.cs" />

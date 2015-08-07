@@ -21,7 +21,7 @@ namespace BackupEngine.Archive
 
         private FileStream _fileStream;
         private Stream _hashedStream;
-        private Filter _filter;
+        private InputFilter _inputFilter;
         private ArchiveState _state = ArchiveState.Initial;
         private readonly List<ulong> _streamIds = new List<ulong>();
         private readonly List<long> _streamSizes = new List<long>();
@@ -56,12 +56,12 @@ namespace BackupEngine.Archive
             EnsureMaximumState(ArchiveState.PushingFiles);
             if (_state == ArchiveState.Initial)
             {
-                _filter = DoFiltering(_hashedStream);
+                _inputFilter = DoFiltering(_hashedStream);
                 _state = ArchiveState.PushingFiles;
             }
             _streamIds.Add(streamId);
             _streamSizes.Add(file.Length);
-            file.CopyTo(_filter);
+            file.CopyTo(_inputFilter);
         }
 
         public void AddFso(FileSystemObject fso)
@@ -70,14 +70,14 @@ namespace BackupEngine.Archive
             EnsureMaximumState(ArchiveState.PushingFsos);
             if (_state == ArchiveState.PushingFiles)
             {
-                _filter.Flush();
-                _filter.Dispose();
-                _filter = DoFiltering(_hashedStream);
+                _inputFilter.Flush();
+                _inputFilter.Dispose();
+                _inputFilter = DoFiltering(_hashedStream);
                 _state = ArchiveState.PushingFsos;
             }
-            var x0 = _filter.BytesIn;
-            Serializer.SerializeToStream(_filter, fso);
-            var x1 = _filter.BytesIn;
+            var x0 = _inputFilter.BytesIn;
+            Serializer.SerializeToStream(_inputFilter, fso);
+            var x1 = _inputFilter.BytesIn;
             _baseObjectEntrySizes.Add(x1 - x0);
         }
 
@@ -85,9 +85,9 @@ namespace BackupEngine.Archive
         {
             EnsureMinimumState(ArchiveState.PushingFsos);
             EnsureMaximumState(ArchiveState.PushingFsos);
-            _filter.Flush();
-            _filter.Dispose();
-            _filter = null;
+            _inputFilter.Flush();
+            _inputFilter.Dispose();
+            _inputFilter = null;
 
             versionManifest.ArchiveMetadata = new ArchiveMetadata
             {
@@ -121,10 +121,10 @@ namespace BackupEngine.Archive
 
         public override void Dispose()
         {
-            if (_filter != null)
+            if (_inputFilter != null)
             {
-                _filter.Dispose();
-                _filter = null;
+                _inputFilter.Dispose();
+                _inputFilter = null;
             }
             if (_hashedStream != null)
             {

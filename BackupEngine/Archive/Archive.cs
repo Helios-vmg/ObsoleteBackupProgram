@@ -18,9 +18,9 @@ namespace BackupEngine.Archive
             _filters.Add(fg);
         }
 
-        protected Filter DoFiltering(Stream stream, bool includeEncryption = true)
+        protected InputFilter DoFiltering(Stream stream, bool includeEncryption = true)
         {
-            var ret = stream as Filter;
+            var ret = stream as InputFilter;
             var enumeration = includeEncryption ? _filters : _filters.Where(x => !x.IsEncryption);
             bool first = true;
             foreach (var filterGenerator in enumeration)
@@ -28,7 +28,7 @@ namespace BackupEngine.Archive
                 ret = filterGenerator.Filter(ret ?? stream, ret == null && first);
                 first = false;
             }
-            return ret ?? new IdentityFilter(stream);
+            return ret ?? new IdentityInputFilter(stream);
         }
     }
 }

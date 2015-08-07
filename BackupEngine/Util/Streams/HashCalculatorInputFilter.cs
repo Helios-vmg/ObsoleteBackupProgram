@@ -4,22 +4,37 @@ using System.Security.Cryptography;
 
 namespace BackupEngine.Util.Streams
 {
-    public class HashCalculatorInputFilter : HashCalculatorFilter
+    public class HashCalculatorInputFilter : InputFilter
     {
-        public HashCalculatorInputFilter(Stream stream, HashAlgorithm hash, bool keepOpen = true) : base(stream, hash, keepOpen) { }
+        protected long BytesProcessed = 0;
+        protected HashAlgorithm Hash;
 
-        public override void Flush()
+        public HashCalculatorInputFilter(Stream stream, HashAlgorithm hash, bool keepOpen = true)
+            : base(stream, keepOpen)
         {
+            Hash = hash;
         }
 
-        public override long Seek(long offset, SeekOrigin origin)
+        protected override void Dispose(bool disposing)
         {
-            throw new InvalidOperationException();
+            if (!disposing)
+                return;
+
+            if (!KeepOpen && Stream != null)
+            {
+                Stream.Dispose();
+                Stream = null;
+            }
         }
 
-        public override void SetLength(long value)
+        public override long BytesIn
         {
-            throw new InvalidOperationException();
+            get { return BytesProcessed; }
+        }
+
+        public override long BytesOut
+        {
+            get { return BytesProcessed; }
         }
 
         protected override int InternalRead(byte[] buffer, int offset, int count)
@@ -28,37 +43,6 @@ namespace BackupEngine.Util.Streams
             Hash.TransformBlock(buffer, offset, ret, null, 0);
             BytesProcessed += ret;
             return ret;
-        }
-
-        public override void Write(byte[] buffer, int offset, int count)
-        {
-            throw new InvalidOperationException();
-        }
-
-        public override bool CanRead
-        {
-            get { return true; }
-        }
-
-        public override bool CanSeek
-        {
-            get { return false; }
-        }
-
-        public override bool CanWrite
-        {
-            get { return false; }
-        }
-
-        public override long Length
-        {
-            get { return Stream.Length; }
-        }
-
-        public override long Position
-        {
-            get { throw new InvalidOperationException(); }
-            set { throw new InvalidOperationException(); }
         }
     }
 }
