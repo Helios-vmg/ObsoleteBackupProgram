@@ -788,13 +788,13 @@ namespace BackupEngine
 
         private static string[] Sizes =
         {
-            " B",
-            " KiB",
-            " MiB",
-            " GiB",
-            " TiB",
-            " PiB",
-            " EiB",
+            "",
+            "Ki",
+            "Mi",
+            "Gi",
+            "Ti",
+            "Pi",
+            "Ei",
         };
 
         public static string FormatSize(long size)
@@ -803,7 +803,7 @@ namespace BackupEngine
             var index = 0;
             for (; f >= 1024.0 && index < Sizes.Length - 1; index++)
                 f /= 1024.0;
-            return String.Format("{0:0.#}", f) + Sizes[index];
+            return String.Format("{0:0.#} {1}B", f, Sizes[index]);
         }
 
         public void GenerateSizeReport(out List<DirectoryFso> largestDirectories, out List<FileSystemObject> largestFiles,

@@ -87,6 +87,7 @@
     <Compile Include="Util\Streams\InlineHashCalculator.cs" />
     <Compile Include="Util\Streams\LzmaFilters.cs" />
     <Compile Include="Util\Streams\NativeStream.cs" />
+    <Compile Include="Util\Streams\ProgressFilter.cs" />
     <Compile Include="Util\StringUtils.cs" />
     <Compile Include="Util\SystemOperations.cs" />
     <Compile Include="VersionForRestore.cs" />
