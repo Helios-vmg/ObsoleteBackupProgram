@@ -15,33 +15,10 @@ namespace BackupEngine.Util.Streams
             Hash = hash;
         }
 
-        protected override void Dispose(bool disposing)
-        {
-            if (!disposing)
-                return;
-
-            if (!KeepOpen && Stream != null)
-            {
-                Stream.Dispose();
-                Stream = null;
-            }
-        }
-
-        public override long BytesIn
-        {
-            get { return BytesProcessed; }
-        }
-
-        public override long BytesOut
-        {
-            get { return BytesProcessed; }
-        }
-
         protected override int InternalRead(byte[] buffer, int offset, int count)
         {
-            var ret = Stream.Read(buffer, offset, count);
+            var ret = base.InternalRead(buffer, offset, count);
             Hash.TransformBlock(buffer, offset, ret, null, 0);
-            BytesProcessed += ret;
             return ret;
         }
     }

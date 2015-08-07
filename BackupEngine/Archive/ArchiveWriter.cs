@@ -48,7 +48,7 @@ namespace BackupEngine.Archive
         public ArchiveWriter(string newPath)
         {
             _fileStream = new FileStream(newPath, FileMode.Create, FileAccess.Write, FileShare.None);
-            _hashedStream = new HashCalulatorOutputFilter(_fileStream, NewHash());
+            _hashedStream = new HashCalculatorOutputFilter(_fileStream, NewHash());
         }
 
         public void AddFile(ulong streamId, Stream file)

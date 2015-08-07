@@ -82,7 +82,7 @@
     <Compile Include="Util\Streams\EncapsulatableStream.cs" />
     <Compile Include="Util\Streams\InputFilter.cs" />
     <Compile Include="Util\Streams\HashCalculatorInputFilter.cs" />
-    <Compile Include="Util\Streams\HashCalulatorOutputFilter.cs" />
+    <Compile Include="Util\Streams\HashCalculatorOutputFilter.cs" />
     <Compile Include="Util\Streams\IdentityFilter.cs" />
     <Compile Include="Util\Streams\InlineHashCalculator.cs" />
     <Compile Include="Util\Streams\LzmaFilters.cs" />
