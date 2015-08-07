@@ -40,3 +40,4 @@ bin64/*.bin
 bin64/test1.vshost.exe.manifest
 ignore/*
 bin64/Ionic.Zip.dll
+*.arc
