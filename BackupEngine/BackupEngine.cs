@@ -462,6 +462,8 @@ namespace BackupEngine
 
         private void GenerateZip(DateTime startTime, Func<FileSystemObject, HashSet<Guid>, BackupStream> streamGenerator, int versionNumber = 0, ulong firstStreamId = 1, ulong firstDiffId = 1)
         {
+            NextStreamUniqueId = firstStreamId;
+            NextDifferentialChainUniqueId = firstDiffId;
             var versionPath = GetVersionPath(versionNumber);
             using (var archive = new ArchiveWriter(versionPath))
             {
