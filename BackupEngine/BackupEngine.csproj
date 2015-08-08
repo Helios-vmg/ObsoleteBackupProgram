@@ -74,6 +74,7 @@
     <Compile Include="FileSystem\FileSystemObjects\DirectoryishFso.cs" />
     <Compile Include="FileSystem\FileSystemObjects\FilishFso.cs" />
     <Compile Include="Serialization\Serializer.cs" />
+    <Compile Include="Util\BinarySearch.cs" />
     <Compile Include="Util\Extensions.cs" />
     <Compile Include="FileSystem\FileSystemOperations.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
@@ -100,10 +101,6 @@
     <ProjectReference Include="..\AlphaFS\AlphaFS\AlphaFS.csproj">
       <Project>{f0f9af1e-d5b5-4d72-804a-5380622fbdea}</Project>
       <Name>AlphaFS</Name>
-    </ProjectReference>
-    <ProjectReference Include="..\DotNetZip.Semverd\src\Zip\Zip DLL.csproj">
-      <Project>{d3b0ad67-44d8-4b3d-bed9-ce1fd6de2c5a}</Project>
-      <Name>Zip DLL</Name>
     </ProjectReference>
   </ItemGroup>
   <ItemGroup />

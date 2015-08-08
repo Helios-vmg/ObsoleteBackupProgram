@@ -62,8 +62,9 @@ namespace BackupEngine
 
         internal override Stream GetStream(VersionForRestore version)
         {
-            var entry = BaseBackupEngine.FindEntry(version.Zip, ZipPath);
-            return entry.OpenReader();
+            return null;
+            //var entry = BaseBackupEngine.FindEntry(version.Zip, ZipPath);
+            //return entry.OpenReader();
         }
     }
 

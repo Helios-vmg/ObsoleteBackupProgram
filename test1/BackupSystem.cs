@@ -60,16 +60,6 @@ namespace test1
             get { return HashType.Sha256; }
         }
 
-        public override int CompressionLevelForFile(FileSystemObject fso)
-        {
-            return 0;
-        }
-
-        public override int CompressionLevelForStructuralFiles
-        {
-            get { return 0; }
-        }
-
         public ChangeCriterium GlobalChangeCriterium = ChangeCriterium.Hash;
 
         public enum ChangeCriterium

@@ -34,7 +34,9 @@ namespace BackupEngine.Util.Streams
         {
             if (count > _size - _bytesRead)
                 count = (int)(_size - _bytesRead);
-            return _stream.Read(buffer, offset, count);
+            var ret = _stream.Read(buffer, offset, count);
+            _bytesRead += ret;
+            return ret;
         }
 
         public override void Write(byte[] buffer, int offset, int count)

@@ -4,7 +4,6 @@ using System.Linq;
 using System.Runtime.InteropServices;
 using BackupEngine;
 using BackupEngine.FileSystem;
-using BackupEngine.Util;
 
 namespace test1
 {

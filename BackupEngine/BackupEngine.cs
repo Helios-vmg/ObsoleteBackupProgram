@@ -10,8 +10,6 @@ using BackupEngine.FileSystem.FileSystemObjects;
 using BackupEngine.FileSystem.FileSystemObjects.Exceptions;
 using BackupEngine.Serialization;
 using BackupEngine.Util;
-using Ionic.Zip;
-using Ionic.Zlib;
 
 namespace BackupEngine
 {
@@ -113,14 +111,14 @@ namespace BackupEngine
             return GetVersionPath(version) + ".sha256";
         }
 
-        protected ZipFile OpenLatestVersion()
+        protected ArchiveReader OpenLatestVersion()
         {
-            return new ZipFile(GetVersionPath(Versions.Back()));
+            return new ArchiveReader(GetVersionPath(Versions.Back()));
         }
 
         private void SetVersions()
         {
-            var regex = new Regex(@".*\\?version([0-9]+)\.zip$", RegexOptions.IgnoreCase);
+            var regex = new Regex(@".*\\?version([0-9]+)\.arc", RegexOptions.IgnoreCase);
             Versions.AddRange(Directory.EnumerateFiles(TargetLocation)
                 .Select(x => regex.Match(x))
                 .Where(x => x.Success)
@@ -128,62 +126,54 @@ namespace BackupEngine
             Versions.Sort();
         }
 
-        public static ZipEntry FindEntry(ZipFile zip, string name)
-        {
-            return zip.Entries.FirstOrDefault(entry => entry.FileName.PathMatch(name));
-        }
+        //public static ZipEntry FindEntry(ZipFile zip, string name)
+        //{
+        //    return zip.Entries.FirstOrDefault(entry => entry.FileName.PathMatch(name));
+        //}
 
-        internal VersionManifest OpenVersionManifest(ZipFile zip, string versionPath)
-        {
-            var entry = FindEntry(zip, VersionManifestPath);
-            if (entry == null)
-                throw new InvalidBackup(TargetLocation, VersionManifestPath + " not found in " + versionPath);
-            using (var stream = entry.OpenReader())
-                return Serializer.Deserialize<VersionManifest>(stream);
-        }
+        //internal VersionManifest OpenVersionManifest(ZipFile zip, string versionPath)
+        //{
+        //    var entry = FindEntry(zip, VersionManifestPath);
+        //    if (entry == null)
+        //        throw new InvalidBackup(TargetLocation, VersionManifestPath + " not found in " + versionPath);
+        //    using (var stream = entry.OpenReader())
+        //        return Serializer.Deserialize<VersionManifest>(stream);
+        //}
 
-        internal FileSystemObject OpenBaseObject(ZipFile zip, int entryId)
-        {
-            var path = GetFileSystemObjectsDatPath(entryId);
-            var entry = FindEntry(zip, path);
-            if (entry == null)
-                throw new InvalidBackup(TargetLocation, path + " not found");
-            using (var stream = entry.OpenReader())
-            {
-                var ret = Serializer.Deserialize<FileSystemObject>(stream);
-                ret.EntryNumber = entryId;
-                return ret;
-            }
-        }
+        //internal FileSystemObject OpenBaseObject(ZipFile zip, int entryId)
+        //{
+        //    var path = GetFileSystemObjectsDatPath(entryId);
+        //    var entry = FindEntry(zip, path);
+        //    if (entry == null)
+        //        throw new InvalidBackup(TargetLocation, path + " not found");
+        //    using (var stream = entry.OpenReader())
+        //    {
+        //        var ret = Serializer.Deserialize<FileSystemObject>(stream);
+        //        ret.EntryNumber = entryId;
+        //        return ret;
+        //    }
+        //}
 
-        internal List<BackupStream> OpenBackupStream(ZipFile zip, int entryId)
-        {
-            var path = GetBackupStreamsDatPath(entryId);
-            var entry = FindEntry(zip, path);
-            if (entry == null)
-                throw new InvalidBackup(TargetLocation, path + " not found");
-            using (var stream = entry.OpenReader())
-                return Serializer.Deserialize<List<BackupStream>>(stream);
-        }
+        //internal List<BackupStream> OpenBackupStream(ZipFile zip, int entryId)
+        //{
+        //    var path = GetBackupStreamsDatPath(entryId);
+        //    var entry = FindEntry(zip, path);
+        //    if (entry == null)
+        //        throw new InvalidBackup(TargetLocation, path + " not found");
+        //    using (var stream = entry.OpenReader())
+        //        return Serializer.Deserialize<List<BackupStream>>(stream);
+        //}
 
         public List<int> GetVersionDependencies(int version)
         {
-            var versionPath = GetVersionPath(version);
-            VersionManifest manifest;
-            using (var zip = new ZipFile(versionPath))
-                manifest = OpenVersionManifest(zip, versionPath);
-            return manifest.VersionDependencies;
+            using (var archive = new ArchiveReader(GetVersionPath(version)))
+                return archive.ReadManifest().VersionDependencies;
         }
 
         public IEnumerable<FileSystemObject> GetEntries(int version)
         {
-            var versionPath = GetVersionPath(version);
-            using (var zip = new ZipFile(versionPath))
-            {
-                var manifest = OpenVersionManifest(zip, versionPath);
-                for (int i = 0; i < manifest.EntryCount; i++)
-                    yield return OpenBaseObject(zip, i);
-            }
+            using (var archive = new ArchiveReader(GetVersionPath(version)))
+                return archive.GetBaseObjects();
         }
 
         protected BaseBackupEngine(string targetPath)
@@ -210,24 +200,6 @@ namespace BackupEngine
         public abstract IErrorReporter ErrorReporter { get; }
 
         public abstract HashType HashAlgorithm { get; }
-
-        public virtual int CompressionLevelForFile(FileSystemObject fso)
-        {
-            return (int)CompressionLevel.Default;
-        }
-
-        public virtual int CompressionLevelForStructuralFiles
-        {
-            get { return (int)CompressionLevel.BestSpeed; }
-        }
-
-        private CompressionLevel InternalCompressionLevelForFile(FileSystemObject fso)
-        {
-            var level = CompressionLevelForFile(fso);
-            if (level < 0 || level > 9)
-                return CompressionLevel.Default;
-            return (CompressionLevel) level;
-        }
 
         private SystemOperations.VolumeSnapshot _currentSnapshot;
         private Dictionary<string, SystemOperations.VolumeInfo> _currentVolumes;
@@ -378,11 +350,11 @@ namespace BackupEngine
         private void UpdateExistingVersion(DateTime startTime)
         {
             ulong firstDiff, firstStream;
-            using (var zip = OpenLatestVersion())
+            using (var archive = OpenLatestVersion())
             {
-                var manifest = OpenVersionManifest(zip, string.Empty);
-                for (int i = 0; i < manifest.EntryCount; i++)
-                    _oldObjects.Add(OpenBaseObject(zip, i));
+                var manifest = archive.ReadManifest();
+                _oldObjects.Clear();
+                _oldObjects.AddRange(archive.GetBaseObjects());
                 firstDiff = manifest.NextDifferentialChainUniqueId;
                 firstStream = manifest.NextStreamUniqueId;
             }
@@ -428,11 +400,33 @@ namespace BackupEngine
                     //latestVersion.SetAllStreamIds();
                 }
 
+                var restoreLater = new List<FileSystemObject>();
                 foreach (var fileSystemObject in _oldObjects.Reversed())
                 {
-                    fileSystemObject.Iterate(x => Restore(x, latestVersion));
+// ReSharper disable once AccessToDisposedClosure
+                    fileSystemObject.Iterate(x => Restore(x, latestVersion, restoreLater));
                 }
-
+                restoreLater.Sort((x, y) => x.StreamUniqueId < y.StreamUniqueId ? -1 : (x.StreamUniqueId > y.StreamUniqueId ? 1 : 0));
+                foreach (var versionNumber in latestVersion.VersionNumber.ToEnumerable().Concat(latestVersion.Manifest.VersionDependencies))
+                {
+                    using (var archive = new ArchiveReader(GetVersionPath(versionNumber)))
+                    {
+                        archive.Begin((streamId, stream) =>
+                        {
+                            var index = restoreLater.BinaryFindFirst(x => x.StreamUniqueId >= streamId);
+                            if (index >= restoreLater.Count)
+                                return;
+                            Console.WriteLine(@"Restoring path: ""{0}""", restoreLater[index].Path);
+                            restoreLater[index].Restore(stream);
+                            for (int i = index + 1;
+                                i < restoreLater.Count && restoreLater[i].StreamUniqueId == streamId;
+                                i++)
+                            {
+                                Console.WriteLine(@"Hardlink requested. Existing path: ""{0}"", new path: ""{1}""", restoreLater[index].Path, restoreLater[i].Path);
+                            }
+                        });
+                    }
+                }
             }
             finally
             {
@@ -441,9 +435,9 @@ namespace BackupEngine
             }
         }
 
-        private void Restore(FileSystemObject fso, VersionForRestore version)
+        private void Restore(FileSystemObject fso, VersionForRestore version, List<FileSystemObject> restoreLater)
         {
-            version.Restore(fso);
+            version.Restore(fso, restoreLater);
         }
 
         FullStream GenerateInitialStream(FileSystemObject fso, HashSet<Guid> knownGuids)
@@ -552,22 +546,6 @@ namespace BackupEngine
             return streamDict;
         }
 
-        private void AddVersionManifest(DateTime startTime, ZipFile zip, IEnumerable<int> versionDependencies, int versionNumber = 0, ulong firstStreamId = 1, ulong firstDiffId = 1)
-        {
-            var entry = zip.AddEntry(VersionManifestPath, Serializer.SerializeToStream(new VersionManifest
-            {
-                CreationTime = startTime,
-                VersionNumber = versionNumber,
-                EntryCount = BaseObjects.Count,
-                FirstStreamUniqueId = firstStreamId,
-                FirstDifferentialChainUniqueId = firstDiffId,
-                NextStreamUniqueId = NextStreamUniqueId,
-                NextDifferentialChainUniqueId = NextDifferentialChainUniqueId,
-                VersionDependencies = versionDependencies.Sorted().ToList(),
-            }));
-            entry.CompressionLevel = (CompressionLevel)CompressionLevelForStructuralFiles;
-        }
-
         protected bool ShouldBeAdded(FileSystemObject fso, HashSet<Guid> knownGuids)
         {
             fso.LatestVersion = -1;
@@ -583,66 +561,9 @@ namespace BackupEngine
             return true;
         }
 
-        private void AddToZip(ZipFile zip, string root, FileSystemObject fso)
-        {
-            var filename = root + fso.PathWithoutBase;
-            var entry = zip.AddEntry(
-                filename,
-                x =>
-                {
-                    Console.WriteLine(fso.Path);
-                    return fso.OpenForExclusiveRead();
-                },
-                (x, y) =>
-                {
-                    if (y != null) y.Close();
-                });
-            entry.CompressionLevel = InternalCompressionLevelForFile(fso);
-        }
-
         public static string GetEntryRoot(int entryId)
         {
             return string.Format(@"entries\{0}\", entryId.ToString("00000000"));
-        }
-
-        private const string VersionManifestPath = "manifest.dat";
-
-        private string GetFileSystemObjectsDatPath(int entryId)
-        {
-            return GetEntryRoot(entryId) + "FileSystemObjects.dat";
-        }
-
-        internal string GetBackupStreamsDatPath(int entryId)
-        {
-            return GetEntryRoot(entryId) + "BackupStreams.dat";
-        }
-
-        private void ComputeAllHashes()
-        {
-            Console.WriteLine("Hashing input files...");
-            var knownGuids = new Dictionary<Tuple<Guid, HashType>, byte[]>();
-            foreach (var fso in BaseObjects)
-                fso.Iterate(x =>
-                {
-                    switch (x.Type)
-                    {
-                        case FileSystemObjectType.RegularFile:
-                            x.ComputeHash(HashAlgorithm);
-                            break;
-                        case FileSystemObjectType.FileHardlink:
-                            if (x.FileSystemGuid != null)
-                            {
-                                byte[] precomputed;
-                                if (knownGuids.TryGetValue(new Tuple<Guid, HashType>(x.FileSystemGuid.Value, HashAlgorithm),
-                                    out precomputed))
-                                    x.Hashes[HashAlgorithm] = precomputed;
-                                else
-                                    knownGuids[new Tuple<Guid, HashType>(x.FileSystemGuid.Value, HashAlgorithm)] =
-                                        x.ComputeHash(HashAlgorithm);
-                            }
-                            break;
-                    }
-                });
         }
 
         private bool _baseObjectsSet;
@@ -785,7 +706,7 @@ namespace BackupEngine
             "Gi",
             "Ti",
             "Pi",
-            "Ei",
+            "Ei"
         };
 
         public static string FormatSize(long size)

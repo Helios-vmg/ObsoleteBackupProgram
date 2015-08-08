@@ -24,7 +24,7 @@ namespace BackupEngine.Archive
 
         private KernelTransaction _transaction;
         private FileStream _fileStream;
-        private Stream _hashedStream;
+        private OutputFilter _hashedStream;
         private OutputFilter _outputFilter;
         private ArchiveState _state = ArchiveState.Initial;
         private readonly List<ulong> _streamIds = new List<ulong>();
@@ -69,6 +69,8 @@ namespace BackupEngine.Archive
             file.CopyTo(_outputFilter);
         }
 
+        private long _initialFsoOffset;
+
         public void AddFso(FileSystemObject fso)
         {
             EnsureMinimumState(ArchiveState.PushingFiles);
@@ -78,11 +80,12 @@ namespace BackupEngine.Archive
                 _outputFilter.Flush();
                 _outputFilter.Dispose();
                 _outputFilter = DoOutputFiltering(_hashedStream);
+                _initialFsoOffset = _hashedStream.BytesWritten;
                 _state = ArchiveState.PushingFsos;
             }
-            var x0 = _outputFilter.BytesWritten;
+            var x0 = _hashedStream.BytesWritten;
             Serializer.SerializeToStream(_outputFilter, fso);
-            var x1 = _outputFilter.BytesWritten;
+            var x1 = _hashedStream.BytesWritten;
             _baseObjectEntrySizes.Add(x1 - x0);
         }
 
@@ -100,14 +103,15 @@ namespace BackupEngine.Archive
                 StreamIds = new List<ulong>(_streamIds),
                 StreamSizes = new List<long>(_streamSizes),
                 CompressionMethod = CompressionMethod,
+                EntriesSizeInArchive = _hashedStream.BytesWritten - _initialFsoOffset,
             };
 
             long manifestLength;
             using (var filter = DoOutputFiltering(_hashedStream, false))
             {
-                var x0 = filter.BytesWritten;
+                var x0 = _hashedStream.BytesWritten;
                 Serializer.SerializeToStream(filter, versionManifest);
-                var x1 = filter.BytesWritten;
+                var x1 = _hashedStream.BytesWritten;
                 manifestLength = x1 - x0;
                 filter.Flush();
             }

@@ -47,7 +47,7 @@ namespace BackupEngine.Util
             return xs.Reverse();
         }
 
-        public static void ZipWith<T1, T2>(this IEnumerable<T1> xs, IEnumerable<T2> ys, Action<T1, T2> f)
+        public static void Zip<T1, T2>(this IEnumerable<T1> xs, IEnumerable<T2> ys, Action<T1, T2> f)
         {
             using (var e1 = xs.GetEnumerator())
             using (var e2 = ys.GetEnumerator())

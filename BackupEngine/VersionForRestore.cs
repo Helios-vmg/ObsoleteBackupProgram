@@ -3,10 +3,10 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using BackupEngine.Archive;
 using BackupEngine.FileSystem;
 using BackupEngine.FileSystem.FileSystemObjects.Exceptions;
 using BackupEngine.Util;
-using Ionic.Zip;
 
 namespace BackupEngine
 {
@@ -16,19 +16,19 @@ namespace BackupEngine
         public readonly int VersionNumber;
         public readonly VersionManifest Manifest;
         public readonly string Path;
-        public readonly ZipFile Zip;
+        public readonly ArchiveReader Archive;
         private readonly Dictionary<int, VersionForRestore> _dependencies = new Dictionary<int, VersionForRestore>();
-        private List<FileSystemObject> _baseObjects = null;
-        private List<List<BackupStream>> _streams = null;
-        private Dictionary<ulong, BackupStream> _streamsDict = null;
+        private List<FileSystemObject> _baseObjects;
+        private List<List<BackupStream>> _streams;
+        private Dictionary<ulong, BackupStream> _streamsDict;
 
         public VersionForRestore(int version, BaseBackupEngine engine)
         {
             _engine = engine;
             VersionNumber = version;
             Path = engine.GetVersionPath(version);
-            Zip = new ZipFile(Path);
-            Manifest = engine.OpenVersionManifest(Zip, Path);
+            Archive = new ArchiveReader(Path);
+            Manifest = Archive.ReadManifest();
         }
 
         private bool _disposed;
@@ -38,7 +38,7 @@ namespace BackupEngine
             if (_disposed)
                 return;
             _disposed = true;
-            Zip.Dispose();
+            Archive.Dispose();
             _dependencies.Values.ForEach(x => x.Dispose());
         }
 
@@ -62,17 +62,14 @@ namespace BackupEngine
 
         private List<FileSystemObject> GetBaseObjects()
         {
-            var ret = new List<FileSystemObject>();
-            for (var i = 0; i < Manifest.EntryCount; i++)
-                ret.Add(_engine.OpenBaseObject(Zip, i));
-            return ret;
+            return Archive.GetBaseObjects();
         }
 
         private List<List<BackupStream>> GetBackupStreams()
         {
             var ret = new List<List<BackupStream>>();
-            for (var i = 0; i < Manifest.EntryCount; i++)
-                ret.Add(_engine.OpenBackupStream(Zip, i));
+            //for (var i = 0; i < Manifest.EntryCount; i++)
+            //    ret.Add(_engine.OpenBackupStream(Zip, i));
             return ret;
         }
 
@@ -123,17 +120,11 @@ namespace BackupEngine
             }
         }
 
-        public void Restore(FileSystemObject fso)
+        public void Restore(FileSystemObject fso, List<FileSystemObject> restoreLater)
         {
             fso.DeleteExisting();
-            if (!fso.Restore())
-            {
-                if (fso.LatestVersion < 0)
-                    return;
-                Console.WriteLine(fso.Path);
-                using (var stream = GetStream(fso))
-                    fso.Restore(stream);
-            }
+            if (!fso.Restore() && fso.LatestVersion >= 0)
+                restoreLater.Add(fso);
         }
 
         private FileSystemObject GetFso(string path)

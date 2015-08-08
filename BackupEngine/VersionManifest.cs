@@ -11,7 +11,6 @@ namespace BackupEngine
         public int VersionNumber;
         public List<int> VersionDependencies = new List<int>();
         public int EntryCount;
-        public long EntriesSizeInArchive;
         public ulong FirstStreamUniqueId;
         public ulong NextStreamUniqueId;
         public ulong FirstDifferentialChainUniqueId;
@@ -23,6 +22,7 @@ namespace BackupEngine
     [ProtoContract(ImplicitFields = ImplicitFields.AllPublic)]
     public class ArchiveMetadata
     {
+        public long EntriesSizeInArchive;
         public List<long> EntrySizes;
         public List<ulong> StreamIds;
         public List<long> StreamSizes;

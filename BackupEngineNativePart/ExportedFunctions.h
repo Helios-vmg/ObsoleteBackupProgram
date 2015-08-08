@@ -46,3 +46,5 @@ EXPORT_THIS void release_input_stream(void *);
 EXPORT_THIS void release_output_stream(void *);
 EXPORT_THIS void *filter_input_stream_through_lzma(void *);
 EXPORT_THIS void *filter_output_stream_through_lzma(void *);
+EXPORT_THIS bool obtain_special_file_privileges();
+EXPORT_THIS bool fast_file_expansion(HANDLE handle, std::uint64_t new_size);

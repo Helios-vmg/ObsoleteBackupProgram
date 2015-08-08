@@ -29,8 +29,8 @@ public:
 	friend std::ostream &operator<<(std::ostream &, const PrintableBuffer &);
 };
 
-// Given a range [first, last) and a predicate f such that for al
-// first <= x < y !f(x) and for all y <= z < last f(z), find_all() returns y,
+// Given a range [first, last) and a predicate f such that !f(x) for all
+// first <= x < y and f(z) for all y <= z < last, find_all() returns y,
 // or last if it does not exist.
 template<class It, class F>
 It find_all(It begin, It end, F &f){

@@ -72,6 +72,7 @@ namespace BackupEngine.Util.Streams
         public override void Write(byte[] buffer, int offset, int count)
         {
             Stream.Write(buffer, offset, count);
+            BytesWritten += count;
         }
     }
 }
