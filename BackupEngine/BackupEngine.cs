@@ -495,6 +495,10 @@ namespace BackupEngine
                     Console.WriteLine(fso.BasePath);
                 }
 
+                if (!archive.AnyFile)
+                    //Rollback.
+                    return;
+
 // ReSharper disable once AccessToDisposedClosure
                 streamDict.Keys.ForEach(x => archive.AddFso(BaseObjects[x]));
 

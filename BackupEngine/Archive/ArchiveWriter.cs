@@ -31,6 +31,8 @@ namespace BackupEngine.Archive
         private readonly List<long> _streamSizes = new List<long>();
         private readonly List<long> _baseObjectEntrySizes = new List<long>();
         private HashAlgorithm _hash;
+        private long _initialFsoOffset;
+        public bool AnyFile { get; private set; }
 
         private HashAlgorithm NewHash()
         {
@@ -82,10 +84,9 @@ namespace BackupEngine.Archive
                 hash.FinishHashing();
                 ret = hash.Hash;
             }
+            AnyFile = true;
             return ret;
         }
-
-        private long _initialFsoOffset;
 
         public void AddFso(FileSystemObject fso)
         {
