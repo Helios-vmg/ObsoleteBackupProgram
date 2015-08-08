@@ -55,11 +55,6 @@ namespace test1
             get { return _errorReporter; }
         }
 
-        public override HashType HashAlgorithm
-        {
-            get { return HashType.Sha256; }
-        }
-
         public ChangeCriterium GlobalChangeCriterium = ChangeCriterium.Hash;
 
         public enum ChangeCriterium

@@ -230,7 +230,7 @@ size_t LzmaInputStream::read(void *buffer, size_t size){
 	}
 	ret = size - this->lstream.avail_out;
 	this->bytes_written += ret;
-	this->at_eof = !ret;
+	this->at_eof = !ret && size;
 	return ret;
 }
 

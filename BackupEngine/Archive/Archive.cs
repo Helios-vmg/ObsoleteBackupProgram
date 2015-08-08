@@ -9,8 +9,13 @@ namespace BackupEngine.Archive
 {
     public abstract class Archive : IDisposable
     {
-        protected ArchiveMetadata.CompressionMethodType CompressionMethod = ArchiveMetadata.CompressionMethodType.BZip2;
+        //protected ArchiveMetadata.CompressionMethodType CompressionMethod = ArchiveMetadata.CompressionMethodType.BZip2;
         private readonly List<FilterGenerator> _filters = new List<FilterGenerator>();
+
+        protected Archive()
+        {
+            _filters.Add(new CompressionFilterGenerator());
+        }
 
         public abstract void Dispose();
 

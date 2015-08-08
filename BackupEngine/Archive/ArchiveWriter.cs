@@ -54,9 +54,10 @@ namespace BackupEngine.Archive
             _transaction = new KernelTransaction();
             _fileStream = File.OpenTransacted(_transaction, newPath, FileMode.Create, FileAccess.Write, FileShare.None);
             _hashedStream = new HashCalculatorOutputFilter(_fileStream, NewHash());
+            
         }
 
-        public void AddFile(ulong streamId, Stream file)
+        public byte[] AddFile(ulong streamId, Stream file, HashType type = HashType.None)
         {
             EnsureMaximumState(ArchiveState.PushingFiles);
             if (_state == ArchiveState.Initial)
@@ -64,9 +65,24 @@ namespace BackupEngine.Archive
                 _outputFilter = DoOutputFiltering(_hashedStream);
                 _state = ArchiveState.PushingFiles;
             }
+            byte[] ret = null;
             _streamIds.Add(streamId);
             _streamSizes.Add(file.Length);
-            file.CopyTo(_outputFilter);
+            Stream stream = file;
+            HashAlgorithm hash = null;
+            if (type != HashType.None)
+            {
+                hash = Hash.New(type);
+                stream = new HashCalculatorInputFilter(stream, hash);
+            }
+            stream.CopyTo(_outputFilter);
+            if (type != HashType.None)
+            {
+                stream.Dispose();
+                hash.FinishHashing();
+                ret = hash.Hash;
+            }
+            return ret;
         }
 
         private long _initialFsoOffset;
@@ -79,13 +95,13 @@ namespace BackupEngine.Archive
             {
                 _outputFilter.Flush();
                 _outputFilter.Dispose();
-                _outputFilter = DoOutputFiltering(_hashedStream);
                 _initialFsoOffset = _hashedStream.BytesWritten;
+                _outputFilter = DoOutputFiltering(_hashedStream);
                 _state = ArchiveState.PushingFsos;
             }
-            var x0 = _hashedStream.BytesWritten;
+            var x0 = _outputFilter.BytesWritten;
             Serializer.SerializeToStream(_outputFilter, fso);
-            var x1 = _hashedStream.BytesWritten;
+            var x1 = _outputFilter.BytesWritten;
             _baseObjectEntrySizes.Add(x1 - x0);
         }
 
@@ -102,7 +118,7 @@ namespace BackupEngine.Archive
                 EntrySizes = new List<long>(_baseObjectEntrySizes),
                 StreamIds = new List<ulong>(_streamIds),
                 StreamSizes = new List<long>(_streamSizes),
-                CompressionMethod = CompressionMethod,
+                //CompressionMethod = CompressionMethod,
                 EntriesSizeInArchive = _hashedStream.BytesWritten - _initialFsoOffset,
             };
 
@@ -111,9 +127,9 @@ namespace BackupEngine.Archive
             {
                 var x0 = _hashedStream.BytesWritten;
                 Serializer.SerializeToStream(filter, versionManifest);
+                filter.Flush();
                 var x1 = _hashedStream.BytesWritten;
                 manifestLength = x1 - x0;
-                filter.Flush();
             }
             var bytes = BitConverter.GetBytes(manifestLength);
             _hashedStream.Write(bytes, 0, bytes.Length);

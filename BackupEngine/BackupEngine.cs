@@ -199,7 +199,10 @@ namespace BackupEngine
 
         public abstract IErrorReporter ErrorReporter { get; }
 
-        public abstract HashType HashAlgorithm { get; }
+        public virtual HashType HashAlgorithm
+        {
+            get { return HashType.Default; }
+        }
 
         private SystemOperations.VolumeSnapshot _currentSnapshot;
         private Dictionary<string, SystemOperations.VolumeInfo> _currentVolumes;
@@ -467,14 +470,21 @@ namespace BackupEngine
 
                 foreach (var kv in streamDict)
                 {
-                    var fso = BaseObjects[kv.Key];
-                    kv.Value.ForEach(x => x.FileSystemObjects.ForEach(y => y.BackupStream = x));
-                    fso.Iterate(x => GetDependencies(x, versionDependencies));
+                    {
+                        var baseObject = BaseObjects[kv.Key];
+                        kv.Value.ForEach(x => x.FileSystemObjects.ForEach(y => y.BackupStream = x));
+                        baseObject.Iterate(x => GetDependencies(x, versionDependencies));
+                    }
 
                     foreach (var backupStream in kv.Value)
                     {
                         Console.WriteLine(backupStream.FileSystemObjects[0].Path);
-                        archive.AddFile(backupStream.UniqueId, backupStream.FileSystemObjects[0].OpenForExclusiveRead());
+                        var fso = backupStream.FileSystemObjects[0];
+                        var compute = fso.GetHash(HashAlgorithm) == null;
+                        var type = compute ? HashAlgorithm : HashType.None;
+                        var digest = archive.AddFile(backupStream.UniqueId, fso.OpenForExclusiveRead(), type);
+                        if (compute)
+                            fso.Hashes[HashAlgorithm] = digest;
                     }
                 }
 

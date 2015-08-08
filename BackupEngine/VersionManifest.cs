@@ -27,14 +27,14 @@ namespace BackupEngine
         public List<ulong> StreamIds;
         public List<long> StreamSizes;
 
-        public enum CompressionMethodType
-        {
-            None,
-            GZip,
-            BZip2,
-            Lzma,
-        }
-
-        public CompressionMethodType CompressionMethod;
+        //public enum CompressionMethodType
+        //{
+        //    None,
+        //    GZip,
+        //    BZip2,
+        //    Lzma,
+        //}
+        //
+        //public CompressionMethodType CompressionMethod;
     }
 }

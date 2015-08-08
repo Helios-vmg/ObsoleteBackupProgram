@@ -21,13 +21,6 @@ namespace BackupEngine.FileSystem
         FileHardlink,
     }
 
-    public enum HashType
-    {
-        Sha1,
-        Md5,
-        Sha256,
-    }
-
     public class FileSystemObjectSettings
     {
         public readonly BaseBackupEngine BackupEngine = null;
@@ -160,7 +153,7 @@ namespace BackupEngine.FileSystem
 
         public void ComputeAnyHash()
         {
-            ComputeHash(HashType.Sha256);
+            ComputeHash(HashType.Default);
         }
 
         /*public static FileSystemObjectType GetType(Guid fileSystemObjectId)

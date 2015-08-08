@@ -79,26 +79,7 @@ namespace BackupEngine.FileSystem.FileSystemObjects
             try
             {
                 using (var file = Alphaleonis.Win32.Filesystem.File.Open(Path, FileMode.Open, FileAccess.Read, FileShare.Read))
-                {
-                    switch (type)
-                    {
-                        case HashType.Sha1:
-                            digest = ComputeSha1(file);
-                            break;
-                        case HashType.Md5:
-                            digest = ComputeMd5(file);
-                            break;
-                        case HashType.Sha256:
-                            digest = ComputeSha256(file);
-                            break;
-                        default:
-                            throw new ArgumentOutOfRangeException("type");
-                    }
-                }
-                if (digest != null)
-                {
-                    Hashes[type] = digest;
-                }
+                    Hashes[type] = digest = Hash.New(type).ComputeHash(file);
             }
             catch (Exception e)
             {
@@ -106,21 +87,6 @@ namespace BackupEngine.FileSystem.FileSystemObjects
                     throw;
             }
             return digest;
-        }
-
-        private byte[] ComputeSha1(FileStream file)
-        {
-            return SHA1.Create().ComputeHash(file);
-        }
-
-        private byte[] ComputeMd5(FileStream file)
-        {
-            return MD5.Create().ComputeHash(file);
-        }
-
-        private byte[] ComputeSha256(FileStream file)
-        {
-            return SHA256.Create().ComputeHash(file);
         }
 
         public override void Iterate(Action<FileSystemObject> f)
