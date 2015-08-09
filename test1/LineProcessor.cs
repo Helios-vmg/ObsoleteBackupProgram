@@ -4,6 +4,7 @@ using System.Linq;
 using System.Runtime.InteropServices;
 using BackupEngine;
 using BackupEngine.FileSystem;
+using BackupEngine.Util;
 
 namespace test1
 {
@@ -207,7 +208,7 @@ namespace test1
                 {
                     foreach (var fileSystemObject in entries)
                     {
-                        Console.WriteLine("Entry {0}, base: {1}", entryId++, fileSystemObject.BasePath);
+                        Console.WriteLine("Entry {0}, base: {1}", entryId++, fileSystemObject.MappedBasePath);
                         fileSystemObject.Iterate(fso =>
                         {
                             Console.WriteLine(fso.PathWithoutBase);
@@ -361,7 +362,7 @@ namespace test1
 
         public void ProcessExcludePath(string[] line)
         {
-            _backupSystem.IgnoredPaths.Add(line[2]);
+            _backupSystem.IgnoredPaths.Add(line[2].NormalizePath());
         }
 
         public void ProcessExcludeName(string[] line)

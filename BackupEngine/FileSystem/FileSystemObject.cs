@@ -40,13 +40,14 @@ namespace BackupEngine.FileSystem
     {
         public override string ToString()
         {
-            return System.IO.Path.GetFileName(Path) ?? string.Empty;
+            return Path.GetFileName(MappedPath) ?? string.Empty;
         }
 
         [ProtoMember(1)] public ulong StreamUniqueId;
         [ProtoMember(2)] public ulong DifferentialChainUniqueId;
         [ProtoMember(3)] public string Name;
-        [ProtoMember(4)] public string BasePath;
+        [ProtoMember(4)] public string MappedBasePath;
+        [ProtoMember(15)] public string UnmappedBasePath;
         [ProtoMember(5)] public string Target;
         [ProtoMember(6)] public long Size;
         [ProtoMember(7)] public DateTime ModificationTime;
@@ -59,14 +60,19 @@ namespace BackupEngine.FileSystem
 
         public abstract FileSystemObjectType Type { get; }
 
-        public string Path
+        public string MappedPath
         {
-            get { return PathOverrideBase(null, false); }
+            get { return PathOverrideBase(); }
+        }
+
+        public string UnmappedPath
+        {
+            get { return PathOverrideBase(UnmappedBasePath, BasePathType.Unmapped); }
         }
 
         public string PathWithoutBase
         {
-            get { return PathOverrideBase(); }
+            get { return PathOverrideBase(null, BasePathType.Override); }
         }
 
         public int EntryNumber = -1;
@@ -93,12 +99,24 @@ namespace BackupEngine.FileSystem
             }
         }
 
-        protected string PathOverrideBaseWeak(string basePath = null)
+        protected string PathOverrideMappedBaseWeak(string basePath = null)
         {
-            return PathOverrideBase(basePath, basePath != null);
+            return PathOverrideBase(basePath, basePath != null ? BasePathType.Override : BasePathType.Mapped);
         }
 
-        protected string PathOverrideBase(string basePath = null, bool @override = true)
+        protected string PathOverrideUnmappedBaseWeak(string basePath = null)
+        {
+            return PathOverrideBase(basePath, basePath != null ? BasePathType.Override : BasePathType.Unmapped);
+        }
+
+        protected enum BasePathType
+        {
+            Mapped,
+            Unmapped,
+            Override,
+        }
+
+        protected string PathOverrideBase(string basePathOverride = null, BasePathType @override = BasePathType.Mapped)
         {
             var _this = this;
             var temp = new List<string>();
@@ -112,7 +130,21 @@ namespace BackupEngine.FileSystem
                 _this = _this.Parent;
             }
 
-            var s = !@override ? _this.BasePath : basePath.NormalizePath();
+            string s;
+            switch (@override)
+            {
+                case BasePathType.Mapped:
+                    s = _this.MappedBasePath;
+                    break;
+                case BasePathType.Unmapped:
+                    s = _this.UnmappedBasePath;
+                    break;
+                case BasePathType.Override:
+                    s = basePathOverride.NormalizePath();
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException("override");
+            }
             if (s != null)
             {
                 temp.Add(s);
@@ -175,24 +207,24 @@ namespace BackupEngine.FileSystem
             return FileSystemOperations.GetFileSystemObjectType(path);
         }
 
-        public static FileSystemObject Create(string path, FileSystemObjectSettings settings = null)
+        public static FileSystemObject Create(string path, string unmappedPath, FileSystemObjectSettings settings = null)
         {
             switch (GetType(path))
             {
                 case FileSystemObjectType.Directory:
-                    return new DirectoryFso(path, settings);
+                    return new DirectoryFso(path, unmappedPath, settings);
                 case FileSystemObjectType.RegularFile:
-                    return new RegularFileFso(path, settings);
+                    return new RegularFileFso(path, unmappedPath, settings);
                 case FileSystemObjectType.DirectorySymlink:
-                    return new DirectorySymlinkFso(path, settings);
+                    return new DirectorySymlinkFso(path, unmappedPath, settings);
                 case FileSystemObjectType.Junction:
-                    return new JunctionFso(path, settings);
+                    return new JunctionFso(path, unmappedPath, settings);
                 case FileSystemObjectType.FileSymlink:
-                    return new FileSymlinkFso(path, settings);
+                    return new FileSymlinkFso(path, unmappedPath, settings);
                 case FileSystemObjectType.FileReparsePoint:
-                    return new FileReparsePointFso(path, settings);
+                    return new FileReparsePointFso(path, unmappedPath, settings);
                 case FileSystemObjectType.FileHardlink:
-                    return new FileHardlink(path, settings);
+                    return new FileHardlinkFso(path, unmappedPath, settings);
                 default:
                     throw new ArgumentOutOfRangeException();
             }
@@ -270,7 +302,7 @@ namespace BackupEngine.FileSystem
         {
         }
 
-        protected FileSystemObject(string path, FileSystemObjectSettings settings)
+        protected FileSystemObject(string path, string unmappedPath, FileSystemObjectSettings settings)
         {
             if (settings != null)
             {
@@ -282,7 +314,9 @@ namespace BackupEngine.FileSystem
             string container;
             string name;
             path.SplitIntoObjectAndContainer(out container, out name);
-            BasePath = container;
+            MappedBasePath = container;
+            unmappedPath.SplitIntoObjectAndContainer(out container, out name);
+            UnmappedBasePath = container;
             Name = name;
             SetFileAttributes(path);
         }
@@ -320,13 +354,13 @@ namespace BackupEngine.FileSystem
         {
             Parent = parent;
             Name = name;
-            path = path ?? Path;
+            path = path ?? MappedPath;
             SetFileAttributes(path);
         }
 
         public bool Contains(string path)
         {
-            var myDecomposedPath = Path.DecomposePath().ToArray();
+            var myDecomposedPath = MappedPath.DecomposePath().ToArray();
             var decomposedPath = path.DecomposePath().ToArray();
             if (!decomposedPath.PathStartsWith(myDecomposedPath))
                 return false;
@@ -342,7 +376,7 @@ namespace BackupEngine.FileSystem
 
         public FileSystemObject Find(string path)
         {
-            var myDecomposedPath = Path.DecomposePath().ToArray();
+            var myDecomposedPath = MappedPath.DecomposePath().ToArray();
             var decomposedPath = path.DecomposePath().ToArray();
             if (!decomposedPath.PathStartsWith(myDecomposedPath))
                 return null;
@@ -355,7 +389,7 @@ namespace BackupEngine.FileSystem
 
         public Stream OpenForExclusiveRead()
         {
-            return Alphaleonis.Win32.Filesystem.File.Open(Path, FileMode.Open, FileAccess.Read, FileShare.None);
+            return Alphaleonis.Win32.Filesystem.File.Open(MappedPath, FileMode.Open, FileAccess.Read, FileShare.None);
         }
 
         public virtual void SetUniqueIds(BaseBackupEngine backup)

@@ -1,25 +1,25 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Security.Cryptography;
 using BackupEngine.FileSystem.FileSystemObjects.Exceptions;
 using BackupEngine.Util;
 using ProtoBuf;
+using File = Alphaleonis.Win32.Filesystem.File;
 
 namespace BackupEngine.FileSystem.FileSystemObjects
 {
     [ProtoContract]
     [ProtoInclude(1006, typeof(RegularFileFso))]
     [ProtoInclude(1007, typeof(FileSymlinkFso))]
-    [ProtoInclude(1008, typeof(FileHardlink))]
+    [ProtoInclude(1008, typeof(FileHardlinkFso))]
     public abstract class FilishFso : FileSystemObject
     {
         protected FilishFso()
         {
         }
 
-        protected FilishFso(string path, FileSystemObjectSettings settings)
-            : base(path, settings)
+        protected FilishFso(string path, string unmappedPath, FileSystemObjectSettings settings)
+            : base(path, unmappedPath, settings)
         {
             SetMembers(path);
         }
@@ -27,7 +27,7 @@ namespace BackupEngine.FileSystem.FileSystemObjects
         protected FilishFso(FileSystemObject parent, string name, string path = null)
             : base(parent, name, path)
         {
-            SetMembers(path ?? Path);
+            SetMembers(path ?? MappedPath);
         }
 
         private void SetMembers(string path)
@@ -78,12 +78,12 @@ namespace BackupEngine.FileSystem.FileSystemObjects
                 return digest;
             try
             {
-                using (var file = Alphaleonis.Win32.Filesystem.File.Open(Path, FileMode.Open, FileAccess.Read, FileShare.Read))
+                using (var file = Alphaleonis.Win32.Filesystem.File.Open(MappedPath, FileMode.Open, FileAccess.Read, FileShare.Read))
                     Hashes[type] = digest = Hash.New(type).ComputeHash(file);
             }
             catch (Exception e)
             {
-                if (!ReportError(e, @"computing hash for """ + Path + @""""))
+                if (!ReportError(e, @"computing hash for """ + MappedPath + @""""))
                     throw;
             }
             return digest;
@@ -101,10 +101,10 @@ namespace BackupEngine.FileSystem.FileSystemObjects
 
         public override void DeleteExisting(string basePath = null)
         {
-            var path = PathOverrideBaseWeak(basePath);
-            if (!Alphaleonis.Win32.Filesystem.File.Exists(path))
+            var path = PathOverrideUnmappedBaseWeak(basePath);
+            if (!File.Exists(path))
                 return;
-            Alphaleonis.Win32.Filesystem.File.Delete(path);
+            File.Delete(path);
         }
     }
 
@@ -115,8 +115,8 @@ namespace BackupEngine.FileSystem.FileSystemObjects
         {
         }
 
-        public RegularFileFso(string path, FileSystemObjectSettings settings = null)
-            : base(path, settings)
+        public RegularFileFso(string path, string unmappedPath, FileSystemObjectSettings settings = null)
+            : base(path, unmappedPath, settings)
         {
             SetBackupMode();
         }
@@ -139,8 +139,8 @@ namespace BackupEngine.FileSystem.FileSystemObjects
 
         public override void Restore(Stream stream, string basePath = null)
         {
-            var path = PathOverrideBaseWeak(basePath);
-            using (var file = Alphaleonis.Win32.Filesystem.File.Open(path, FileMode.Create, FileAccess.Write, FileShare.None))
+            var path = PathOverrideUnmappedBaseWeak(basePath);
+            using (var file = File.Open(path, FileMode.Create, FileAccess.Write, FileShare.None))
                 stream.CopyTo(file);
         }
     }
@@ -154,8 +154,8 @@ namespace BackupEngine.FileSystem.FileSystemObjects
             
         }
 
-        public FileSymlinkFso(string path, FileSystemObjectSettings settings = null)
-            : base(path, settings)
+        public FileSymlinkFso(string path, string unmappedPath, FileSystemObjectSettings settings = null)
+            : base(path, unmappedPath, settings)
         {
             SetMembers(path);
             SetBackupMode();
@@ -177,7 +177,7 @@ namespace BackupEngine.FileSystem.FileSystemObjects
         public FileSymlinkFso(FileSystemObject parent, string name, string path = null)
             : base(parent, name, path)
         {
-            SetMembers(path ?? Path);
+            SetMembers(path ?? MappedPath);
             SetBackupMode();
         }
 
@@ -188,7 +188,7 @@ namespace BackupEngine.FileSystem.FileSystemObjects
 
         protected override void RestoreInternal(string basePath)
         {
-            var path = PathOverrideBaseWeak(basePath);
+            var path = PathOverrideUnmappedBaseWeak(basePath);
             FileSystemOperations.CreateSymlink(path, Target);
         }
     }
@@ -201,8 +201,8 @@ namespace BackupEngine.FileSystem.FileSystemObjects
             throw new ReparsePointsNotImplemented(string.Empty);
         }
 
-        public FileReparsePointFso(string path, FileSystemObjectSettings settings = null)
-            : base(path, settings)
+        public FileReparsePointFso(string path, string unmappedPath, FileSystemObjectSettings settings = null)
+            : base(path, unmappedPath, settings)
         {
             throw new ReparsePointsNotImplemented(path);
         }
@@ -210,7 +210,7 @@ namespace BackupEngine.FileSystem.FileSystemObjects
         public FileReparsePointFso(FileSystemObject parent, string name, string path = null)
             : base(parent, name, path)
         {
-            throw new ReparsePointsNotImplemented(path ?? Path);
+            throw new ReparsePointsNotImplemented(path ?? MappedPath);
         }
 
         public override FileSystemObjectType Type
@@ -220,27 +220,27 @@ namespace BackupEngine.FileSystem.FileSystemObjects
 
         protected override void RestoreInternal(string basePath)
         {
-            var path = PathOverrideBaseWeak(basePath);
+            var path = PathOverrideUnmappedBaseWeak(basePath);
             FileSystemOperations.CreateFileReparsePoint(path, Target);
         }
     }
 
     [ProtoContract]
-    public class FileHardlink : FilishFso
+    public class FileHardlinkFso : FilishFso
     {
         public readonly List<string> Peers;
-        public FileHardlink()
+        public FileHardlinkFso()
         {
         }
 
-        public FileHardlink(string path, FileSystemObjectSettings settings = null)
-            : base(path, settings)
+        public FileHardlinkFso(string path, string unmappedPath, FileSystemObjectSettings settings = null)
+            : base(path, unmappedPath, settings)
         {
             Peers = FileSystemOperations.ListAllHardlinks(path);
             SetBackupMode();
         }
 
-        public FileHardlink(FileSystemObject parent, string name, string path = null)
+        public FileHardlinkFso(FileSystemObject parent, string name, string path = null)
             : base(parent, name, path)
         {
             Peers = FileSystemOperations.ListAllHardlinks(path);
@@ -254,7 +254,7 @@ namespace BackupEngine.FileSystem.FileSystemObjects
 
         protected override void RestoreInternal(string basePath)
         {
-            var path = PathOverrideBaseWeak(basePath);
+            var path = PathOverrideUnmappedBaseWeak(basePath);
             FileSystemOperations.CreateHardlink(path, Target);
         }
     }

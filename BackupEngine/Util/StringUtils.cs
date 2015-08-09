@@ -51,8 +51,11 @@ namespace BackupEngine.Util
         {
             if (path == null)
                 return false;
+            int skip = 0;
+            if (path.StartsWith(@"\\?\"))
+                skip = 4;
             var lastWasSlash = false;
-            foreach (var c in path)
+            foreach (var c in path.Skip(skip))
             {
                 if (c == '/')
                     return true;
@@ -84,7 +87,13 @@ namespace BackupEngine.Util
                 return path;
             var lastWasSlash = false;
             var ret = new StringBuilder(path.Length);
-            foreach (var c in path)
+            int skip = 0;
+            if (path.StartsWith(@"\\?\"))
+            {
+                ret.Append(@"\\?\");
+                skip = 4;
+            }
+            foreach (var c in path.Skip(skip))
             {
                 if (c == '/' || c == '\\')
                 {

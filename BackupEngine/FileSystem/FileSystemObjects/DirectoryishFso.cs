@@ -5,6 +5,7 @@ using System.Linq;
 using BackupEngine.FileSystem.FileSystemObjects.Exceptions;
 using BackupEngine.Util;
 using ProtoBuf;
+using Directory = Alphaleonis.Win32.Filesystem.Directory;
 
 namespace BackupEngine.FileSystem.FileSystemObjects
 {
@@ -32,8 +33,8 @@ namespace BackupEngine.FileSystem.FileSystemObjects
         {
         }
 
-        protected DirectoryishFso(string path, FileSystemObjectSettings settings)
-            : base(path, settings)
+        protected DirectoryishFso(string path, string unmappedPath, FileSystemObjectSettings settings)
+            : base(path, unmappedPath, settings)
         {
         }
 
@@ -81,7 +82,7 @@ namespace BackupEngine.FileSystem.FileSystemObjects
 
         public override void DeleteExisting(string basePath = null)
         {
-            var path = PathOverrideBaseWeak(basePath);
+            var path = PathOverrideUnmappedBaseWeak(basePath);
             if (!Directory.Exists(path))
                 return;
             Directory.Delete(path, true);
@@ -89,7 +90,7 @@ namespace BackupEngine.FileSystem.FileSystemObjects
 
         public FileSystemObject CreateChild(string name, string path = null)
         {
-            path = path ?? (Path + @"\" + name);
+            path = path ?? (MappedPath + @"\" + name);
             FileSystemObject ret;
             switch (GetType(path))
             {
@@ -112,7 +113,7 @@ namespace BackupEngine.FileSystem.FileSystemObjects
                     ret = new FileReparsePointFso(this, name, path);
                     break;
                 case FileSystemObjectType.FileHardlink:
-                    ret = new FileHardlink(this, name, path);
+                    ret = new FileHardlinkFso(this, name, path);
                     break;
                 default:
                     throw new ArgumentOutOfRangeException();
@@ -131,8 +132,8 @@ namespace BackupEngine.FileSystem.FileSystemObjects
         {
         }
 
-        public DirectoryFso(string path, FileSystemObjectSettings settings = null)
-            : base(path, settings)
+        public DirectoryFso(string path, string unmappedPath, FileSystemObjectSettings settings = null)
+            : base(path, unmappedPath, settings)
         {
             SetBackupMode();
             if (BackupMode == BackupMode.Directory)
@@ -144,7 +145,7 @@ namespace BackupEngine.FileSystem.FileSystemObjects
         {
             SetBackupMode();
             if (BackupMode == BackupMode.Directory)
-                Children = ConstructChildrenList(path ?? Path);
+                Children = ConstructChildrenList(path ?? MappedPath);
         }
 
         public override long RecursiveSize
@@ -195,7 +196,7 @@ namespace BackupEngine.FileSystem.FileSystemObjects
 
         protected override void RestoreInternal(string basePath)
         {
-            var path = PathOverrideBaseWeak(basePath);
+            var path = PathOverrideUnmappedBaseWeak(basePath);
             Directory.CreateDirectory(path);
         }
     }
@@ -208,8 +209,8 @@ namespace BackupEngine.FileSystem.FileSystemObjects
         {
         }
 
-        public DirectorySymlinkFso(string path, FileSystemObjectSettings settings = null)
-            : base(path, settings)
+        public DirectorySymlinkFso(string path, string unmappedPath, FileSystemObjectSettings settings = null)
+            : base(path, unmappedPath, settings)
         {
             SetTarget(path);
             SetBackupMode();
@@ -218,7 +219,7 @@ namespace BackupEngine.FileSystem.FileSystemObjects
         public DirectorySymlinkFso(FileSystemObject parent, string name, string path = null)
             : base(parent, name, path)
         {
-            SetTarget(path ?? Path);
+            SetTarget(path ?? MappedPath);
             SetBackupMode();
         }
 
@@ -253,7 +254,7 @@ namespace BackupEngine.FileSystem.FileSystemObjects
 
         protected override void RestoreInternal(string basePath)
         {
-            var path = PathOverrideBaseWeak(basePath);
+            var path = PathOverrideUnmappedBaseWeak(basePath);
             FileSystemOperations.CreateDirectorySymlink(path, Target);
         }
     }
@@ -266,8 +267,8 @@ namespace BackupEngine.FileSystem.FileSystemObjects
             throw new ReparsePointsNotImplemented(string.Empty);
         }
 
-        public JunctionFso(string path, FileSystemObjectSettings settings = null)
-            : base(path, settings)
+        public JunctionFso(string path, string unmappedPath, FileSystemObjectSettings settings = null)
+            : base(path, unmappedPath, settings: settings)
         {
             throw new ReparsePointsNotImplemented(path);
         }
@@ -275,7 +276,7 @@ namespace BackupEngine.FileSystem.FileSystemObjects
         public JunctionFso(FileSystemObject parent, string name, string path = null)
             : base(parent, name, path)
         {
-            throw new ReparsePointsNotImplemented(path ?? Path);
+            throw new ReparsePointsNotImplemented(path ?? MappedPath);
         }
 
         public override FileSystemObjectType Type
@@ -285,7 +286,7 @@ namespace BackupEngine.FileSystem.FileSystemObjects
 
         protected override void RestoreInternal(string basePath)
         {
-            var path = PathOverrideBaseWeak(basePath);
+            var path = PathOverrideUnmappedBaseWeak(basePath);
             FileSystemOperations.CreateJunction(path, Target);
         }
     }

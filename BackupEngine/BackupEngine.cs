@@ -345,21 +345,20 @@ namespace BackupEngine
             {
                 fso.Iterate(x =>
                 {
-                    _oldObjectsDict[x.Path.SimplifyPath()] = x;
+                    _oldObjectsDict[x.MappedPath.SimplifyPath()] = x;
                 });
             }
         }
 
         private void UpdateExistingVersion(DateTime startTime)
         {
-            ulong firstDiff, firstStream;
             using (var archive = OpenLatestVersion())
             {
                 var manifest = archive.ReadManifest();
                 _oldObjects.Clear();
                 _oldObjects.AddRange(archive.GetBaseObjects());
-                firstDiff = manifest.NextDifferentialChainUniqueId;
-                firstStream = manifest.NextStreamUniqueId;
+                NextDifferentialChainUniqueId = manifest.NextDifferentialChainUniqueId;
+                NextStreamUniqueId = manifest.NextStreamUniqueId;
             }
             SetOldObjectsDict();
             SetBaseObjects();
@@ -368,12 +367,12 @@ namespace BackupEngine
                 baseObject.Iterate(fso =>
                 {
                     FileSystemObject found;
-                    if (!_oldObjectsDict.TryGetValue(fso.Path.SimplifyPath(), out found))
+                    if (!_oldObjectsDict.TryGetValue(fso.MappedPath.SimplifyPath(), out found))
                         return;
                     fso.StreamUniqueId = found.StreamUniqueId;
                 });
             }
-            GenerateZip(startTime, CheckAndMaybeAdd, NewVersionNumber, firstStream, firstDiff);
+            GenerateZip(startTime, CheckAndMaybeAdd, NewVersionNumber);
         }
 
         public void RestoreBackup()
@@ -400,11 +399,10 @@ namespace BackupEngine
 
                     latestVersion = versions[latestVersionNumber];
                     latestVersion.FillDependencies(versions);
-                    //latestVersion.SetAllStreamIds();
                 }
 
                 var restoreLater = new List<FileSystemObject>();
-                foreach (var fileSystemObject in _oldObjects.Reversed())
+                foreach (var fileSystemObject in _oldObjects)
                 {
 // ReSharper disable once AccessToDisposedClosure
                     fileSystemObject.Iterate(x => Restore(x, latestVersion, restoreLater));
@@ -419,13 +417,14 @@ namespace BackupEngine
                             var index = restoreLater.BinaryFindFirst(x => x.StreamUniqueId >= streamId);
                             if (index >= restoreLater.Count)
                                 return;
-                            Console.WriteLine(@"Restoring path: ""{0}""", restoreLater[index].Path);
+                            Console.WriteLine(@"Restoring path: ""{0}""", restoreLater[index].UnmappedPath);
                             restoreLater[index].Restore(stream);
                             for (int i = index + 1;
                                 i < restoreLater.Count && restoreLater[i].StreamUniqueId == streamId;
                                 i++)
                             {
-                                Console.WriteLine(@"Hardlink requested. Existing path: ""{0}"", new path: ""{1}""", restoreLater[index].Path, restoreLater[i].Path);
+                                Console.WriteLine(@"Hardlink requested. Existing path: ""{0}"", new path: ""{1}""", restoreLater[index].MappedPath, restoreLater[i].MappedPath);
+                                restoreLater[index].Restore();
                             }
                         });
                     }
@@ -460,10 +459,10 @@ namespace BackupEngine
             return ret;
         }
 
-        private void GenerateZip(DateTime startTime, Func<FileSystemObject, HashSet<Guid>, BackupStream> streamGenerator, int versionNumber = 0, ulong firstStreamId = 1, ulong firstDiffId = 1)
+        private void GenerateZip(DateTime startTime, Func<FileSystemObject, HashSet<Guid>, BackupStream> streamGenerator, int versionNumber = 0)
         {
-            NextStreamUniqueId = firstStreamId;
-            NextDifferentialChainUniqueId = firstDiffId;
+            var firstStreamId = NextStreamUniqueId;
+            var firstDiffId = NextDifferentialChainUniqueId;
             var versionPath = GetVersionPath(versionNumber);
             using (var archive = new ArchiveWriter(versionPath))
             {
@@ -480,7 +479,7 @@ namespace BackupEngine
 
                     foreach (var backupStream in kv.Value)
                     {
-                        Console.WriteLine(backupStream.FileSystemObjects[0].Path);
+                        Console.WriteLine(backupStream.FileSystemObjects[0].UnmappedPath);
                         var fso = backupStream.FileSystemObjects[0];
                         var compute = fso.GetHash(HashAlgorithm) == null;
                         var type = compute ? HashAlgorithm : HashType.None;
@@ -488,13 +487,6 @@ namespace BackupEngine
                         if (compute)
                             fso.Hashes[HashAlgorithm] = digest;
                     }
-                }
-
-                foreach (var fso in BaseObjects)
-                {
-                    Console.Write(fso.BasePath + " -> ");
-                    fso.BasePath = MapPathBack(fso.BasePath);
-                    Console.WriteLine(fso.BasePath);
                 }
 
                 if (!archive.AnyFile)
@@ -588,7 +580,7 @@ namespace BackupEngine
 
         private IEnumerable<string> GetCurrentSourceLocations()
         {
-            return VersionCount == 0 ? GetSourceLocations() : _oldObjects.Where(x => x.IsMain).Select(x => x.Path);
+            return VersionCount == 0 ? GetSourceLocations() : _oldObjects.Where(x => x.IsMain).Select(x => x.MappedPath);
         }
 
         private void SetBaseObjects()
@@ -602,7 +594,11 @@ namespace BackupEngine
                 Reporter = ErrorReporter,
                 BackupModeMap = MakeMap(forLaterCheck),
             };
-            BaseObjects.AddRange(GetCurrentSourceLocations().Select(MapPathForward).Select(x => FileSystemObject.Create(x, settings)));
+            foreach (var currentSourceLocation in GetCurrentSourceLocations())
+                BaseObjects.Add(FileSystemObject.Create(
+                    MapPathForward(currentSourceLocation),
+                    currentSourceLocation,
+                    settings));
             BaseObjects.ForEach(x => x.IsMain = true);
             while (forLaterCheck.Count > 0)
             {
@@ -611,7 +607,7 @@ namespace BackupEngine
                 settings.BackupModeMap = MakeMap(forLaterCheck);
                 foreach (var path in oldForLaterCheck)
                     if (!Covered(path))
-                        BaseObjects.Add(FileSystemObject.Create(MapPathForward(path), settings));
+                        BaseObjects.Add(FileSystemObject.Create(MapPathForward(path), path, settings));
             }
             for (int i = 0; i < BaseObjects.Count; i++)
                 BaseObjects[i].EntryNumber = i;
@@ -644,7 +640,7 @@ namespace BackupEngine
 
         private bool FileHasChanged(FileSystemObject newFile)
         {
-            var oldFile = FindPath(_oldObjects, newFile.Path);
+            var oldFile = FindPath(_oldObjects, newFile.MappedPath);
             if (oldFile == null)
             {
                 newFile.ComputeHash(HashAlgorithm);
@@ -776,7 +772,7 @@ namespace BackupEngine
             while (_recalculateFileGuids.Count > 0)
             {
                 var fso = _recalculateFileGuids.Dequeue();
-                var path = fso.Path;
+                var path = fso.MappedPath;
                 path = MapPathBack(path);
                 fso.SetFileSystemGuid(path, false);
             }

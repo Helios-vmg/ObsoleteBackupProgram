@@ -40,7 +40,7 @@ namespace test1
             if (IgnoredNames.TryGetValue(o.Name, out nit) && ((nit & NameIgnoreType.File) != 0 && !o.IsDirectoryish || (nit & NameIgnoreType.Directory) != 0 && o.IsDirectoryish))
                 return BackupMode.NoBackup;
             if (IgnoredExtensions.Contains(Path.GetExtension(o.Name)) && !o.IsDirectoryish ||
-                IgnoredPaths.Contains(o.Path))
+                IgnoredPaths.Contains(o.UnmappedPath))
                 return BackupMode.NoBackup;
             return o.IsDirectoryish ? BackupMode.Directory : BackupMode.Full;
         }

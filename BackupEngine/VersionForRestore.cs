@@ -112,7 +112,7 @@ namespace BackupEngine
                 var objects = _dependencies[requiredObject.Key].GetBaseObjects();
                 foreach (var fso in requiredObject.Value)
                 {
-                    var found = objects.Select(x => x.Find(fso.Path)).FirstOrDefault();
+                    var found = objects.Select(x => x.Find(fso.MappedPath)).FirstOrDefault();
                     if (found == null || found.StreamUniqueId == BaseBackupEngine.InvalidStreamId)
                         continue;
                     fso.StreamUniqueId = found.StreamUniqueId;
