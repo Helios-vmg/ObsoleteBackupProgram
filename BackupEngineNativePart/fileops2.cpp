@@ -103,7 +103,10 @@ EXPORT_THIS int get_reparse_point_target(const wchar_t *_path, unsigned long *un
 
 EXPORT_THIS int get_file_guid(const wchar_t *_path, GUID *guid){
 	auto path = path_from_string(_path);
-	HANDLE h = CreateFileW(path.c_str(), 0, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING, 0, nullptr);
+#define CREATE_FILE(x) CreateFileW(path.c_str(), 0, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING, (x), nullptr)
+	HANDLE h = CREATE_FILE(0);
+	if (h == INVALID_HANDLE_VALUE)
+		h = CREATE_FILE(FILE_FLAG_OPEN_REPARSE_POINT);
 	if (h == INVALID_HANDLE_VALUE)
 		return 1;
 

@@ -286,6 +286,7 @@ namespace BackupEngine
                 PerformBackupInner(startTime);
                 return;
             }
+            Console.WriteLine("Creating shadows.");
             using (_currentSnapshot = new SystemOperations.VolumeSnapshot(_currentVolumes.Keys))
             {
                 foreach (var shadow in _currentSnapshot.Shadows)
@@ -301,6 +302,7 @@ namespace BackupEngine
 
         private void PerformBackupInner(DateTime startTime)
         {
+            Console.WriteLine("Performing backup.");
             if (VersionCount == 0)
                 CreateInitialVersion(startTime);
             else
@@ -418,13 +420,20 @@ namespace BackupEngine
                             if (index >= restoreLater.Count)
                                 return;
                             Console.WriteLine(@"Restoring path: ""{0}""", restoreLater[index].UnmappedPath);
+                            var hardlink = restoreLater[index] as FileHardlinkFso;
+                            if (hardlink != null)
+                            {
+                                hardlink.TreatAsFile = true;
+                            }
                             restoreLater[index].Restore(stream);
                             for (int i = index + 1;
                                 i < restoreLater.Count && restoreLater[i].StreamUniqueId == streamId;
                                 i++)
                             {
                                 Console.WriteLine(@"Hardlink requested. Existing path: ""{0}"", new path: ""{1}""", restoreLater[index].MappedPath, restoreLater[i].MappedPath);
-                                restoreLater[index].Restore();
+                                hardlink = (FileHardlinkFso) restoreLater[i];
+                                hardlink.Target = restoreLater[index].UnmappedPath;
+                                hardlink.Restore();
                             }
                         });
                     }
@@ -442,12 +451,18 @@ namespace BackupEngine
             version.Restore(fso, restoreLater);
         }
 
-        FullStream GenerateInitialStream(FileSystemObject fso, HashSet<Guid> knownGuids)
+        FullStream GenerateInitialStream(FileSystemObject fso, Dictionary<Guid, BackupStream> knownGuids)
         {
             if (!ShouldBeAdded(fso, knownGuids))
+            {
+                BackupStream stream;
+                if (fso is FileHardlinkFso && fso.FileSystemGuid != null && knownGuids.TryGetValue(fso.FileSystemGuid.Value, out stream))
+                {
+                    fso.StreamUniqueId = stream.UniqueId;
+                    fso.BackupStream = stream;
+                }
                 return null;
-            if (fso.FileSystemGuid != null)
-                knownGuids.Add(fso.FileSystemGuid.Value);
+            }
             var ret = new FullStream
             {
                 UniqueId = fso.StreamUniqueId,
@@ -455,11 +470,13 @@ namespace BackupEngine
                 VirtualSize = fso.Size,
                 ZipPath = fso.ZipPath,
             };
+            if (fso.FileSystemGuid != null)
+                knownGuids[fso.FileSystemGuid.Value] = ret;
             ret.FileSystemObjects.Add(fso);
             return ret;
         }
 
-        private void GenerateZip(DateTime startTime, Func<FileSystemObject, HashSet<Guid>, BackupStream> streamGenerator, int versionNumber = 0)
+        private void GenerateZip(DateTime startTime, Func<FileSystemObject, Dictionary<Guid, BackupStream>, BackupStream> streamGenerator, int versionNumber = 0)
         {
             var firstStreamId = NextStreamUniqueId;
             var firstDiffId = NextDifferentialChainUniqueId;
@@ -531,9 +548,9 @@ namespace BackupEngine
             GenerateZip(startTime, GenerateInitialStream);
         }
 
-        private Dictionary<int, List<BackupStream>> GenerateStreams(Func<FileSystemObject, HashSet<Guid>, BackupStream> streamGenerator)
+        private Dictionary<int, List<BackupStream>> GenerateStreams(Func<FileSystemObject, Dictionary<Guid, BackupStream>, BackupStream> streamGenerator)
         {
-            var knownGuids = new HashSet<Guid>();
+            var knownGuids = new Dictionary<Guid, BackupStream>();
             var streamDict = new Dictionary<int, List<BackupStream>>();
             for (int i = 0; i < BaseObjects.Count; i++)
             {
@@ -554,7 +571,7 @@ namespace BackupEngine
             return streamDict;
         }
 
-        protected bool ShouldBeAdded(FileSystemObject fso, HashSet<Guid> knownGuids)
+        protected bool ShouldBeAdded(FileSystemObject fso, Dictionary<Guid, BackupStream> knownGuids)
         {
             fso.LatestVersion = -1;
             if (fso.IsDirectoryish)
@@ -564,7 +581,7 @@ namespace BackupEngine
             if (fso.IsLinkish && fso.Type != FileSystemObjectType.FileHardlink)
                 return false;
             fso.LatestVersion = NewVersionNumber;
-            if (fso.FileSystemGuid != null && knownGuids.Contains(fso.FileSystemGuid.Value))
+            if (fso.FileSystemGuid != null && knownGuids.ContainsKey(fso.FileSystemGuid.Value))
                 return false;
             return true;
         }
@@ -677,14 +694,12 @@ namespace BackupEngine
             return ret;
         }
 
-        private BackupStream CheckAndMaybeAdd(FileSystemObject fso, HashSet<Guid> knownGuids)
+        private BackupStream CheckAndMaybeAdd(FileSystemObject fso, Dictionary<Guid, BackupStream> knownGuids)
         {
             if (!ShouldBeAdded(fso, knownGuids))
                 return null;
             if (fso.BackupMode != BackupMode.ForceFull && !FileHasChanged(fso))
                 return null;
-            if (fso.FileSystemGuid != null)
-                knownGuids.Add(fso.FileSystemGuid.Value);
             BackupStream newStream;
             switch (fso.BackupMode)
             {
@@ -705,6 +720,8 @@ namespace BackupEngine
                 default:
                     throw new ArgumentOutOfRangeException();
             }
+            if (fso.FileSystemGuid != null)
+                knownGuids[fso.FileSystemGuid.Value] = newStream;
             return newStream;
         }
 

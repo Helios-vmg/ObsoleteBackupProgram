@@ -247,7 +247,7 @@ EXPORT_THIS void *filter_output_stream_through_lzma(void *p){
 	auto stream = (std::shared_ptr<OutStream> *)p;
 	bool mt = true;
 	auto ret = new std::shared_ptr<OutStream>(new LzmaOutputStream(*stream, mt));
-	if (mt)
-		std::cout << "Running in multithreaded mode.\n";
+	//if (mt)
+	//	std::cout << "Running in multithreaded mode.\n";
 	return ret;
 }

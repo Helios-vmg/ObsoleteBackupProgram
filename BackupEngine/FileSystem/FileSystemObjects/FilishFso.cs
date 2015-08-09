@@ -11,7 +11,6 @@ namespace BackupEngine.FileSystem.FileSystemObjects
     [ProtoContract]
     [ProtoInclude(1006, typeof(RegularFileFso))]
     [ProtoInclude(1007, typeof(FileSymlinkFso))]
-    [ProtoInclude(1008, typeof(FileHardlinkFso))]
     public abstract class FilishFso : FileSystemObject
     {
         protected FilishFso()
@@ -109,6 +108,7 @@ namespace BackupEngine.FileSystem.FileSystemObjects
     }
 
     [ProtoContract]
+    [ProtoInclude(1008, typeof(FileHardlinkFso))]
     public class RegularFileFso : FilishFso
     {
         public RegularFileFso()
@@ -226,9 +226,11 @@ namespace BackupEngine.FileSystem.FileSystemObjects
     }
 
     [ProtoContract]
-    public class FileHardlinkFso : FilishFso
+    public class FileHardlinkFso : RegularFileFso
     {
-        public readonly List<string> Peers;
+        [ProtoMember(16)] public List<string> Peers;
+        public bool TreatAsFile;
+
         public FileHardlinkFso()
         {
         }
@@ -252,10 +254,18 @@ namespace BackupEngine.FileSystem.FileSystemObjects
             get { return FileSystemObjectType.FileHardlink; }
         }
 
-        protected override void RestoreInternal(string basePath)
+        public override bool StreamRequired
         {
+            get { return true; }
+        }
+
+        public override bool Restore(string basePath = null)
+        {
+            if (Target == null)
+                return false;
             var path = PathOverrideUnmappedBaseWeak(basePath);
             FileSystemOperations.CreateHardlink(path, Target);
+            return true;
         }
     }
 }
