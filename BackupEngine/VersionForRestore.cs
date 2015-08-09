@@ -68,8 +68,6 @@ namespace BackupEngine
         private List<List<BackupStream>> GetBackupStreams()
         {
             var ret = new List<List<BackupStream>>();
-            //for (var i = 0; i < Manifest.EntryCount; i++)
-            //    ret.Add(_engine.OpenBackupStream(Zip, i));
             return ret;
         }
 

@@ -90,9 +90,14 @@ namespace BackupEngine.Archive
 
         public void AddFso(FileSystemObject fso)
         {
-            EnsureMinimumState(ArchiveState.PushingFiles);
             EnsureMaximumState(ArchiveState.PushingFsos);
-            if (_state == ArchiveState.PushingFiles)
+            if (_state == ArchiveState.Initial)
+            {
+                _initialFsoOffset = _hashedStream.BytesWritten;
+                _outputFilter = DoOutputFiltering(_hashedStream);
+                _state = ArchiveState.PushingFsos;
+            }
+            else if (_state == ArchiveState.PushingFiles)
             {
                 _outputFilter.Flush();
                 _outputFilter.Dispose();

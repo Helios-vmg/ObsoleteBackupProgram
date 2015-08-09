@@ -220,7 +220,7 @@ namespace test1
                                 Console.WriteLine("    Stream ID: " + fso.StreamUniqueId);
                                 Console.WriteLine("    Stored in version: " + fso.LatestVersion);
                             }
-                            if (fso.IsLinkish)
+                            if (fso.IsLinkish && fso.Type != FileSystemObjectType.FileHardlink)
                                 Console.WriteLine("    Link target: " + fso.Target);
                         });
                     }

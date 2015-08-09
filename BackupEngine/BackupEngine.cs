@@ -26,6 +26,10 @@ namespace BackupEngine
         //File will be backed up fully if changes were made to it. Only for
         //filish file system objects.
         Full,
+        //Used to signal that no changes have ocurred since the last time the
+        //file was backup up, and so a reference to the old version will be
+        //stored, rather than file data.
+        Unmodified,
         //File will be backed up if changes were made to it, storing only the
         //parts of the file that changed, using the rsync algorithm. Only for
         //filish file system objects.
@@ -125,44 +129,6 @@ namespace BackupEngine
                 .Select(x => Convert.ToInt32(x.Groups[1].ToString())));
             Versions.Sort();
         }
-
-        //public static ZipEntry FindEntry(ZipFile zip, string name)
-        //{
-        //    return zip.Entries.FirstOrDefault(entry => entry.FileName.PathMatch(name));
-        //}
-
-        //internal VersionManifest OpenVersionManifest(ZipFile zip, string versionPath)
-        //{
-        //    var entry = FindEntry(zip, VersionManifestPath);
-        //    if (entry == null)
-        //        throw new InvalidBackup(TargetLocation, VersionManifestPath + " not found in " + versionPath);
-        //    using (var stream = entry.OpenReader())
-        //        return Serializer.Deserialize<VersionManifest>(stream);
-        //}
-
-        //internal FileSystemObject OpenBaseObject(ZipFile zip, int entryId)
-        //{
-        //    var path = GetFileSystemObjectsDatPath(entryId);
-        //    var entry = FindEntry(zip, path);
-        //    if (entry == null)
-        //        throw new InvalidBackup(TargetLocation, path + " not found");
-        //    using (var stream = entry.OpenReader())
-        //    {
-        //        var ret = Serializer.Deserialize<FileSystemObject>(stream);
-        //        ret.EntryNumber = entryId;
-        //        return ret;
-        //    }
-        //}
-
-        //internal List<BackupStream> OpenBackupStream(ZipFile zip, int entryId)
-        //{
-        //    var path = GetBackupStreamsDatPath(entryId);
-        //    var entry = FindEntry(zip, path);
-        //    if (entry == null)
-        //        throw new InvalidBackup(TargetLocation, path + " not found");
-        //    using (var stream = entry.OpenReader())
-        //        return Serializer.Deserialize<List<BackupStream>>(stream);
-        //}
 
         public List<int> GetVersionDependencies(int version)
         {
@@ -337,8 +303,7 @@ namespace BackupEngine
         private void CreateInitialVersion(DateTime startTime)
         {
             SetBaseObjects();
-            //ComputeAllHashes();
-            GenerateFirstZip(startTime);
+            GenerateFirstArchive(startTime);
         }
 
         private void SetOldObjectsDict()
@@ -374,7 +339,7 @@ namespace BackupEngine
                     fso.StreamUniqueId = found.StreamUniqueId;
                 });
             }
-            GenerateZip(startTime, CheckAndMaybeAdd, NewVersionNumber);
+            GenerateArchive(startTime, CheckAndMaybeAdd, NewVersionNumber);
         }
 
         public void RestoreBackup()
@@ -455,12 +420,7 @@ namespace BackupEngine
         {
             if (!ShouldBeAdded(fso, knownGuids))
             {
-                BackupStream stream;
-                if (fso is FileHardlinkFso && fso.FileSystemGuid != null && knownGuids.TryGetValue(fso.FileSystemGuid.Value, out stream))
-                {
-                    fso.StreamUniqueId = stream.UniqueId;
-                    fso.BackupStream = stream;
-                }
+                FixUpStreamReference(fso, knownGuids);
                 return null;
             }
             var ret = new FullStream
@@ -468,7 +428,6 @@ namespace BackupEngine
                 UniqueId = fso.StreamUniqueId,
                 PhysicalSize = fso.Size,
                 VirtualSize = fso.Size,
-                ZipPath = fso.ZipPath,
             };
             if (fso.FileSystemGuid != null)
                 knownGuids[fso.FileSystemGuid.Value] = ret;
@@ -476,7 +435,63 @@ namespace BackupEngine
             return ret;
         }
 
-        private void GenerateZip(DateTime startTime, Func<FileSystemObject, Dictionary<Guid, BackupStream>, BackupStream> streamGenerator, int versionNumber = 0)
+        private static void FixUpStreamReference(FileSystemObject fso, Dictionary<Guid, BackupStream> knownGuids)
+        {
+            BackupStream stream;
+            if (fso is FileHardlinkFso && fso.FileSystemGuid != null &&
+                knownGuids.TryGetValue(fso.FileSystemGuid.Value, out stream))
+            {
+                fso.StreamUniqueId = stream.UniqueId;
+                fso.BackupStream = stream;
+                if (stream.FileSystemObjects.Count > 0)
+                    fso.LatestVersion = stream.FileSystemObjects[0].LatestVersion;
+                stream.FileSystemObjects.Add(fso);
+            }
+        }
+
+        private BackupStream CheckAndMaybeAdd(FileSystemObject fso, Dictionary<Guid, BackupStream> knownGuids)
+        {
+            if (!ShouldBeAdded(fso, knownGuids))
+            {
+                FixUpStreamReference(fso, knownGuids);
+                return null;
+            }
+            int existingVersion = -1;
+            if (fso.BackupMode != BackupMode.ForceFull && !FileHasChanged(fso, out existingVersion))
+                fso.BackupMode = BackupMode.Unmodified;
+            BackupStream newStream;
+            switch (fso.BackupMode)
+            {
+                case BackupMode.Unmodified:
+                    newStream = new UnmodifiedStream
+                    {
+                        UniqueId = fso.StreamUniqueId,
+                        ContainingVersion = existingVersion,
+                        VirtualSize = fso.Size,
+                    };
+                    newStream.FileSystemObjects.Add(fso);
+                    break;
+                case BackupMode.ForceFull:
+                case BackupMode.Full:
+                    newStream = new FullStream
+                    {
+                        UniqueId = fso.StreamUniqueId,
+                        PhysicalSize = fso.Size,
+                        VirtualSize = fso.Size,
+                    };
+                    newStream.FileSystemObjects.Add(fso);
+                    break;
+                case BackupMode.Rsync:
+                    throw new NotImplementedException("Differential backup not implemented.");
+                default:
+                    throw new ArgumentOutOfRangeException();
+            }
+            if (fso.FileSystemGuid != null)
+                knownGuids[fso.FileSystemGuid.Value] = newStream;
+            return newStream;
+        }
+
+        private void GenerateArchive(DateTime startTime, Func<FileSystemObject, Dictionary<Guid, BackupStream>, BackupStream> streamGenerator, int versionNumber = 0)
         {
             var firstStreamId = NextStreamUniqueId;
             var firstDiffId = NextDifferentialChainUniqueId;
@@ -505,10 +520,6 @@ namespace BackupEngine
                             fso.Hashes[HashAlgorithm] = digest;
                     }
                 }
-
-                if (!archive.AnyFile)
-                    //Rollback.
-                    return;
 
 // ReSharper disable once AccessToDisposedClosure
                 streamDict.Keys.ForEach(x => archive.AddFso(BaseObjects[x]));
@@ -543,9 +554,9 @@ namespace BackupEngine
             }
         }
 
-        private void GenerateFirstZip(DateTime startTime)
+        private void GenerateFirstArchive(DateTime startTime)
         {
-            GenerateZip(startTime, GenerateInitialStream);
+            GenerateArchive(startTime, GenerateInitialStream);
         }
 
         private Dictionary<int, List<BackupStream>> GenerateStreams(Func<FileSystemObject, Dictionary<Guid, BackupStream>, BackupStream> streamGenerator)
@@ -559,7 +570,7 @@ namespace BackupEngine
                 fso.Iterate(x =>
                 {
                     var stream = streamGenerator(x, knownGuids);
-                    if (stream == null)
+                    if (stream == null || !stream.HasData)
                         return;
                     x.SetUniqueIds(this);
                     stream.UniqueId = x.StreamUniqueId;
@@ -655,8 +666,9 @@ namespace BackupEngine
             return fso.Select(x => x.Find(path)).FirstOrDefault(x => x != null);
         }
 
-        private bool FileHasChanged(FileSystemObject newFile)
+        private bool FileHasChanged(FileSystemObject newFile, out int existingVersion)
         {
+            existingVersion = -1;
             var oldFile = FindPath(_oldObjects, newFile.MappedPath);
             if (oldFile == null)
             {
@@ -688,41 +700,10 @@ namespace BackupEngine
             if (!ret)
             {
                 oldFile.Hashes.ForEach(x => newFile.Hashes[x.Key] = x.Value);
-                newFile.ComputeHash(HashAlgorithm);
                 newFile.LatestVersion = oldFile.LatestVersion;
+                existingVersion = oldFile.LatestVersion;
             }
             return ret;
-        }
-
-        private BackupStream CheckAndMaybeAdd(FileSystemObject fso, Dictionary<Guid, BackupStream> knownGuids)
-        {
-            if (!ShouldBeAdded(fso, knownGuids))
-                return null;
-            if (fso.BackupMode != BackupMode.ForceFull && !FileHasChanged(fso))
-                return null;
-            BackupStream newStream;
-            switch (fso.BackupMode)
-            {
-                case BackupMode.ForceFull:
-                case BackupMode.Full:
-                    newStream = new FullStream
-                        {
-                            UniqueId = fso.StreamUniqueId,
-                            PhysicalSize = fso.Size,
-                            VirtualSize = fso.Size,
-                            ZipPath = fso.ZipPath,
-                        };
-                    newStream.FileSystemObjects.Add(fso);
-                    break;
-                case BackupMode.Rsync:
-                    throw new NotImplementedException("Differential backup not implemented.");
-                    //break;
-                default:
-                    throw new ArgumentOutOfRangeException();
-            }
-            if (fso.FileSystemGuid != null)
-                knownGuids[fso.FileSystemGuid.Value] = newStream;
-            return newStream;
         }
 
         protected readonly List<BackupStream> Streams = new List<BackupStream>();

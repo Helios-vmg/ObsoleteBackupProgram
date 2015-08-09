@@ -27,6 +27,13 @@ namespace BackupEngine
         public List<ulong> StreamIds;
         public List<long> StreamSizes;
 
+        public void EnsureNonNull()
+        {
+            EntrySizes = EntrySizes ?? new List<long>();
+            StreamIds = StreamIds ?? new List<ulong>();
+            StreamSizes = StreamSizes ?? new List<long>();
+        }
+
         //public enum CompressionMethodType
         //{
         //    None,

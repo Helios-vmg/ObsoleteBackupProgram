@@ -10,6 +10,7 @@ namespace BackupEngine
     public enum StreamType
     {
         None,
+        Unmodified,
         Full,
         Diff,
     }
@@ -31,6 +32,43 @@ namespace BackupEngine
 
         public abstract void GetDependencies(HashSet<int> versionDependencies);
         internal abstract Stream GetStream(VersionForRestore version);
+
+        public virtual bool HasData { get { return true; } }
+    }
+
+    [ProtoContract]
+    public class UnmodifiedStream : BackupStream
+    {
+        [ProtoMember(5)]
+        public long VirtualSize;
+        [ProtoMember(6)]
+        public int ContainingVersion;
+
+        public override StreamType Type
+        {
+            get { return StreamType.Unmodified; }
+        }
+
+        public override long VirtualSizeProp
+        {
+            get { return VirtualSize; }
+        }
+
+        public override long PhysicalSizeProp
+        {
+            get { return 0; }
+        }
+
+        public override void GetDependencies(HashSet<int> versionDependencies)
+        {
+            versionDependencies.Add(ContainingVersion);
+        }
+
+        internal override Stream GetStream(VersionForRestore version)
+        {
+            return null;
+        }
+        public override bool HasData { get { return false; } }
     }
 
     [ProtoContract]
@@ -45,8 +83,6 @@ namespace BackupEngine
         public long VirtualSize;
         [ProtoMember(3)]
         public long PhysicalSize;
-        [ProtoMember(4)]
-        public string ZipPath;
 
         public override long VirtualSizeProp
         {
@@ -63,8 +99,6 @@ namespace BackupEngine
         internal override Stream GetStream(VersionForRestore version)
         {
             return null;
-            //var entry = BaseBackupEngine.FindEntry(version.Zip, ZipPath);
-            //return entry.OpenReader();
         }
     }
 

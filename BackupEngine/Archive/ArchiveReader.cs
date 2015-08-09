@@ -46,6 +46,7 @@ namespace BackupEngine.Archive
             using (var boundedStream = new BoundedStream(_stream, _manifestSize))
             using (var filteredStream = DoInputFiltering(boundedStream, false))
                 VersionManifest = Serializer.Deserialize<VersionManifest>(filteredStream);
+            VersionManifest.ArchiveMetadata.EnsureNonNull();
             _baseObjectsOffset = _manifestOffset - VersionManifest.ArchiveMetadata.EntriesSizeInArchive;
             _streamIds = new List<ulong>(VersionManifest.ArchiveMetadata.StreamIds);
             _streamSizes = new List<long>(VersionManifest.ArchiveMetadata.StreamSizes);

@@ -88,17 +88,6 @@ namespace BackupEngine.FileSystem
             }
         }
 
-        public string ZipPath
-        {
-            get
-            {
-                var noBase = PathWithoutBase;
-                var container = GetEntryContainer;
-                Debug.Assert(container >= 0);
-                return BaseBackupEngine.GetEntryRoot(container) + noBase;
-            }
-        }
-
         protected string PathOverrideMappedBaseWeak(string basePath = null)
         {
             return PathOverrideBase(basePath, basePath != null ? BasePathType.Override : BasePathType.Mapped);
