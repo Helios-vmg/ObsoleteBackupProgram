@@ -4,11 +4,6 @@
 #include "lzma.h"
 #include "ExportedFunctions.h"
 #include "MiscFunctions.h"
-//#include <process.h>
-
-//extern "C" uintptr_t __cdecl _imp__beginthreadex(void * _Security, unsigned _StackSize, unsigned(__stdcall * _StartAddress) (void *), void * _ArgList, unsigned _InitFlag, unsigned * _ThrdAddr){
-//	return _beginthreadex(_Security, _StackSize, _StartAddress, _ArgList, _InitFlag, _ThrdAddr);
-//}
 
 bool LzmaOutputStream::pass_data_to_stream(lzma_ret ret){
 	if (!this->lstream.avail_out || ret == LZMA_STREAM_END) {

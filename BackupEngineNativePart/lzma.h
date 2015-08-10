@@ -1,7 +1,8 @@
 #pragma once
 #include "streams.h"
 
-const size_t default_buffer_size = 1 << 12;
+// This is appears to be what .NET uses by default for System.IO.Stream.CopyTo().
+const size_t default_buffer_size = 81920;
 
 class LzmaInitializationException : public std::exception{
 	std::string message;
@@ -33,7 +34,7 @@ class LzmaOutputStream : public OutStream{
 	bool initialize_multithreaded(int, size_t, bool);
 	bool pass_data_to_stream(lzma_ret ret);
 public:
-	LzmaOutputStream(std::shared_ptr<OutStream> wrapped_stream, bool &multithreaded, int compression_level = 1, size_t buffer_size = default_buffer_size, bool extreme_mode = false);
+	LzmaOutputStream(std::shared_ptr<OutStream> wrapped_stream, bool &multithreaded, int compression_level = 7, size_t buffer_size = default_buffer_size, bool extreme_mode = false);
 	~LzmaOutputStream();
 	void write(const void *buffer, size_t size) override;
 	void flush() override;
