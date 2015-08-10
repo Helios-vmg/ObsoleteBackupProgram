@@ -201,7 +201,6 @@
     </ClCompile>
     <ClCompile Include="StreamBlockReader.cpp" />
     <ClCompile Include="streams.cpp" />
-    <ClCompile Include="test.cpp" />
     <ClCompile Include="Threads.cpp" />
     <ClCompile Include="vss.cpp" />
   </ItemGroup>

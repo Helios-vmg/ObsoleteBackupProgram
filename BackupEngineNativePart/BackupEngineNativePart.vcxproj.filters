@@ -116,9 +116,6 @@
     <ClCompile Include="BackupEngineNativePart.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="test.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="circular_buffer.cpp">
       <Filter>Source Files\rdiff</Filter>
     </ClCompile>

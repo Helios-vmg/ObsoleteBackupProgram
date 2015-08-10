@@ -198,19 +198,19 @@ namespace BackupEngine.FileSystem.FileSystemObjects
     {
         public FileReparsePointFso()
         {
-            throw new ReparsePointsNotImplemented(string.Empty);
+            throw new FileReparsePointsNotImplemented(string.Empty);
         }
 
         public FileReparsePointFso(string path, string unmappedPath, FileSystemObjectSettings settings = null)
             : base(path, unmappedPath, settings)
         {
-            throw new ReparsePointsNotImplemented(path);
+            throw new FileReparsePointsNotImplemented(path);
         }
 
         public FileReparsePointFso(FileSystemObject parent, string name, string path = null)
             : base(parent, name, path)
         {
-            throw new ReparsePointsNotImplemented(path ?? MappedPath);
+            throw new FileReparsePointsNotImplemented(path ?? MappedPath);
         }
 
         public override FileSystemObjectType Type

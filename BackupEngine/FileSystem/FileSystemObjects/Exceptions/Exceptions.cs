@@ -26,9 +26,9 @@ namespace BackupEngine.FileSystem.FileSystemObjects.Exceptions
         }
     }
 
-    public class ReparsePointsNotImplemented : NotImplementedException
+    public class FileReparsePointsNotImplemented : NotImplementedException
     {
-        public ReparsePointsNotImplemented(string path) :
+        public FileReparsePointsNotImplemented(string path) :
             base("Restoring reparse points is not implemented, therefore " + 
             "backing up reparse points is not allowed. To back up, replace this " +
             "reparse point with a symbolic link: " + path)

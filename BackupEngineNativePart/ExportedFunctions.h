@@ -14,7 +14,6 @@ EXPORT_THIS int create_directory_symlink(const wchar_t *_link_location, const wc
 EXPORT_THIS int create_junction(const wchar_t *_link_location, const wchar_t *_target_location);
 EXPORT_THIS int create_file_reparse_point(const wchar_t *_link_location, const wchar_t *_target_location);
 EXPORT_THIS int create_hardlink(const wchar_t *_link_location, const wchar_t *_existing_file);
-EXPORT_THIS void test_func(const wchar_t *path);
 EXPORT_THIS int create_snapshot(void **object);
 EXPORT_THIS int add_volume_to_snapshot(void *object, const wchar_t *volume);
 EXPORT_THIS int do_snapshot(void *object);

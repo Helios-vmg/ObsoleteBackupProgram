@@ -264,19 +264,16 @@ namespace BackupEngine.FileSystem.FileSystemObjects
     {
         public JunctionFso()
         {
-            throw new ReparsePointsNotImplemented(string.Empty);
         }
 
         public JunctionFso(string path, string unmappedPath, FileSystemObjectSettings settings = null)
             : base(path, unmappedPath, settings: settings)
         {
-            throw new ReparsePointsNotImplemented(path);
         }
 
         public JunctionFso(FileSystemObject parent, string name, string path = null)
             : base(parent, name, path)
         {
-            throw new ReparsePointsNotImplemented(path ?? MappedPath);
         }
 
         public override FileSystemObjectType Type
@@ -287,7 +284,7 @@ namespace BackupEngine.FileSystem.FileSystemObjects
         protected override void RestoreInternal(string basePath)
         {
             var path = PathOverrideUnmappedBaseWeak(basePath);
-            FileSystemOperations.CreateJunction(path, Target);
+            FileSystemOperations.CreateDirectoryJunction(path, Target);
         }
     }
 }

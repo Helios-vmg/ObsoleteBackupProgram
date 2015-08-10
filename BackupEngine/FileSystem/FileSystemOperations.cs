@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.IO;
 using System.Runtime.InteropServices;
+using Microsoft.SqlServer.Server;
+using Directory = Alphaleonis.Win32.Filesystem.Directory;
 
 namespace BackupEngine.FileSystem
 {
@@ -84,17 +86,9 @@ namespace BackupEngine.FileSystem
             uint reparseTag;
             string ret = null;
             var result = get_reparse_point_target(path, out reparseTag, x => ret = x);
-            switch (result)
-            {
-                case 0:
-                    return ret;
-                case 1:
-                    throw new FileNotFoundException("Not found: " + path);
-                case 2:
-                    throw new UnrecognizedReparseTagException(reparseTag);
-                default:
-                    throw new IndexOutOfRangeException();
-            }
+            if (result == 0)
+                return ret;
+            throw new Win32Exception(result/*, string.Format(@"GetReparsePointTarget(""{0}"")", path)*/);
         }
 
         public static Guid GetFileGuid(string path)
@@ -168,11 +162,6 @@ namespace BackupEngine.FileSystem
             CallLinkFunction(create_directory_symlink, linkPath, targetPath);
         }
 
-        public static void CreateJunction(string linkPath, string targetPath)
-        {
-            CallLinkFunction(create_junction, linkPath, targetPath);
-        }
-
         public static void CreateFileReparsePoint(string linkPath, string targetPath)
         {
             CallLinkFunction(create_file_reparse_point, linkPath, targetPath);
@@ -181,6 +170,15 @@ namespace BackupEngine.FileSystem
         public static void CreateHardlink(string linkPath, string targetPath)
         {
             CallLinkFunction(create_hardlink, linkPath, targetPath);
+        }
+
+        public static void CreateDirectoryJunction(string linkPath, string targetPath)
+        {
+            Directory.CreateDirectory(linkPath);
+            var result = create_junction(linkPath, targetPath);
+            if (result == 0)
+                return;
+            throw new Win32Exception(result/*, string.Format(@"CreateDirectoryJunction(linkPath: ""{0}"", targetPath: ""{1}"")", linkPath, targetPath)*/);
         }
     }
 }

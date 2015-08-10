@@ -2,6 +2,15 @@
 #include "MiscFunctions.h"
 #include "ExportedFunctions.h"
 
+struct AutoHandle{
+	HANDLE handle;
+	AutoHandle(HANDLE handle) : handle(handle){}
+	~AutoHandle(){
+		if (this->handle && this->handle != INVALID_HANDLE_VALUE)
+			CloseHandle(this->handle);
+	}
+};
+
 // Advanced file operations
 
 typedef struct _REPARSE_DATA_BUFFER {
@@ -41,9 +50,11 @@ static bool starts_with(const std::wstring &a, const wchar_t *b){
 }
 
 int internal_get_reparse_point_target(const wchar_t *path, unsigned long *unrecognized, std::wstring *target_path, bool *is_symlink){
-	HANDLE h = CreateFileW(path, 0, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING, FILE_FLAG_OPEN_REPARSE_POINT | FILE_FLAG_BACKUP_SEMANTICS, nullptr);
-	if (h == INVALID_HANDLE_VALUE)
-		return 1;
+	const auto share_mode = FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE;
+	const auto flags = FILE_FLAG_OPEN_REPARSE_POINT | FILE_FLAG_BACKUP_SEMANTICS;
+	AutoHandle h = CreateFileW(path, 0, share_mode, nullptr, OPEN_EXISTING, flags, nullptr);
+	if (h.handle == INVALID_HANDLE_VALUE)
+		return GetLastError();
 
 	USHORT size = 1 << 14;
 	std::vector<char> tempbuf(size);
@@ -51,7 +62,7 @@ int internal_get_reparse_point_target(const wchar_t *path, unsigned long *unreco
 		REPARSE_DATA_BUFFER *buf = (REPARSE_DATA_BUFFER *)&tempbuf[0];
 		buf->ReparseDataLength = size;
 		DWORD cbOut;
-		auto status = DeviceIoControl(h, FSCTL_GET_REPARSE_POINT, nullptr, 0, buf, size, &cbOut, nullptr);
+		auto status = DeviceIoControl(h.handle, FSCTL_GET_REPARSE_POINT, nullptr, 0, buf, size, &cbOut, nullptr);
 		auto error = GetLastError();
 		if (status){
 			switch (buf->ReparseTag){
@@ -86,7 +97,7 @@ int internal_get_reparse_point_target(const wchar_t *path, unsigned long *unreco
 				default:
 					if (unrecognized)
 						*unrecognized = buf->ReparseTag;
-					return 2;
+					return ERROR_UNIDENTIFIED_ERROR;
 			}
 		}else{
 			if (error == ERROR_MORE_DATA){
@@ -94,12 +105,11 @@ int internal_get_reparse_point_target(const wchar_t *path, unsigned long *unreco
 				tempbuf.resize(size);
 				continue;
 			}
-			return 2;
+			return error;
 		}
 		break;
 	}
-	CloseHandle(h);
-	return 0;
+	return ERROR_SUCCESS;
 }
 
 EXPORT_THIS int get_reparse_point_target(const wchar_t *_path, unsigned long *unrecognized, string_callback_t f){
@@ -114,10 +124,10 @@ EXPORT_THIS int get_reparse_point_target(const wchar_t *_path, unsigned long *un
 EXPORT_THIS int get_file_guid(const wchar_t *_path, GUID *guid){
 	auto path = path_from_string(_path);
 #define CREATE_FILE(x) CreateFileW(path.c_str(), 0, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING, (x), nullptr)
-	HANDLE h = CREATE_FILE(0);
-	if (h == INVALID_HANDLE_VALUE)
-		h = CREATE_FILE(FILE_FLAG_OPEN_REPARSE_POINT);
-	if (h == INVALID_HANDLE_VALUE)
+	AutoHandle h = CREATE_FILE(0);
+	if (h.handle == INVALID_HANDLE_VALUE)
+		h.handle = CREATE_FILE(FILE_FLAG_OPEN_REPARSE_POINT);
+	if (h.handle == INVALID_HANDLE_VALUE)
 		return 1;
 
 	FILE_OBJECTID_BUFFER buf;
@@ -128,7 +138,7 @@ EXPORT_THIS int get_file_guid(const wchar_t *_path, GUID *guid){
 		FSCTL_GET_OBJECT_ID,
 	};
 	for (auto ctl : rounds){
-		if (DeviceIoControl(h, ctl, nullptr, 0, &buf, sizeof(buf), &cbOut, nullptr)){
+		if (DeviceIoControl(h.handle, ctl, nullptr, 0, &buf, sizeof(buf), &cbOut, nullptr)){
 			CopyMemory(guid, &buf.ObjectId, sizeof(GUID));
 			ret = 0;
 			break;
@@ -143,7 +153,6 @@ EXPORT_THIS int get_file_guid(const wchar_t *_path, GUID *guid){
 			break;
 		}
 	}
-	CloseHandle(h);
 	return ret;
 }
 
@@ -168,14 +177,13 @@ enum class FileSystemObjectType{
 };
 
 static DWORD hardlink_count(const wchar_t *path){
-	auto handle = CreateFileW(path, 0, FILE_SHARE_DELETE | FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, nullptr);
+	AutoHandle handle = CreateFileW(path, 0, FILE_SHARE_DELETE | FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, nullptr);
 	DWORD ret = 0;
-	if (handle == INVALID_HANDLE_VALUE)
+	if (handle.handle == INVALID_HANDLE_VALUE)
 		return ret;
 	BY_HANDLE_FILE_INFORMATION info;
-	if (GetFileInformationByHandle(handle, &info))
+	if (GetFileInformationByHandle(handle.handle, &info))
 		ret = info.nNumberOfLinks;
-	CloseHandle(handle);
 	return ret;
 }
 
@@ -288,8 +296,43 @@ EXPORT_THIS int create_directory_symlink(const wchar_t *_link_location, const wc
 	return create_symlink(_link_location, _target_location, true);
 }
 
+typedef struct {
+	DWORD ReparseTag;
+	WORD ReparseDataLength;
+	WORD Reserved2;
+	WORD Reserved;
+	WORD ReparseTargetLength;
+	WORD ReparseTargetMaximumLength;
+	WORD Reserved1;
+	WCHAR ReparseTarget[1];
+} REPARSE_MOUNTPOINT_DATA_BUFFER, *PREPARSE_MOUNTPOINT_DATA_BUFFER;
+
 EXPORT_THIS int create_junction(const wchar_t *_link_location, const wchar_t *_target_location){
-	return E_FAIL;
+	auto path = path_from_string(_link_location);
+	AutoHandle h = CreateFileW(path.c_str(), GENERIC_READ | GENERIC_WRITE, 0, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_DIRECTORY | FILE_FLAG_OPEN_REPARSE_POINT | FILE_FLAG_BACKUP_SEMANTICS, nullptr);
+	if (h.handle == INVALID_HANDLE_VALUE)
+		return GetLastError();
+
+	std::wstring target = L"\\??\\";
+	target.append(_target_location);
+
+	const auto byte_length = target.size() * sizeof(wchar_t);
+	const auto byte_length_z = byte_length + sizeof(wchar_t);
+
+	std::vector<char> buffer(offsetof(REPARSE_MOUNTPOINT_DATA_BUFFER, ReparseTarget) + byte_length_z + 2);
+	REPARSE_MOUNTPOINT_DATA_BUFFER *rdb = (REPARSE_MOUNTPOINT_DATA_BUFFER *)&buffer[0];
+	rdb->ReparseTag = IO_REPARSE_TAG_MOUNT_POINT;
+	rdb->ReparseDataLength = (DWORD)(byte_length_z + 10);
+	rdb->Reserved = 0;
+	rdb->Reserved1 = 0;
+	rdb->ReparseTargetLength = (WORD)byte_length;
+	rdb->ReparseTargetMaximumLength = rdb->ReparseTargetLength + sizeof(wchar_t);
+	memcpy(rdb->ReparseTarget, &target[0], byte_length);
+	auto status = DeviceIoControl(h.handle, FSCTL_SET_REPARSE_POINT, &buffer[0], (DWORD)buffer.size(), nullptr, 0, nullptr, nullptr);
+	DWORD error = ERROR_SUCCESS;
+	if (!status)
+		error = GetLastError();
+	return error;
 }
 
 EXPORT_THIS int create_file_reparse_point(const wchar_t *_link_location, const wchar_t *_target_location){
