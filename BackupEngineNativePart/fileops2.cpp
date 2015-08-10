@@ -47,46 +47,56 @@ int internal_get_reparse_point_target(const wchar_t *path, unsigned long *unreco
 
 	USHORT size = 1 << 14;
 	std::vector<char> tempbuf(size);
-	REPARSE_DATA_BUFFER *buf = (REPARSE_DATA_BUFFER *)&tempbuf[0];
-	buf->ReparseDataLength = size;
-	DWORD cbOut;
-	auto status = DeviceIoControl(h, FSCTL_GET_REPARSE_POINT, nullptr, 0, buf, size, &cbOut, nullptr);
-	auto error = GetLastError();
-	if (status){
-		switch (buf->ReparseTag){
-			case IO_REPARSE_TAG_SYMLINK:
-				{
-					auto p = (char *)buf->SymbolicLinkReparseBuffer.PathBuffer + buf->SymbolicLinkReparseBuffer.SubstituteNameOffset;
-					auto begin = (const wchar_t *)p;
-					auto end = (const wchar_t *)(p + buf->SymbolicLinkReparseBuffer.SubstituteNameLength);
-					if (!!target_path){
-						target_path->assign(begin, end);
-						if (starts_with(*target_path, L"\\??\\"))
-							*target_path = target_path->substr(4);
+	while (true){
+		REPARSE_DATA_BUFFER *buf = (REPARSE_DATA_BUFFER *)&tempbuf[0];
+		buf->ReparseDataLength = size;
+		DWORD cbOut;
+		auto status = DeviceIoControl(h, FSCTL_GET_REPARSE_POINT, nullptr, 0, buf, size, &cbOut, nullptr);
+		auto error = GetLastError();
+		if (status){
+			switch (buf->ReparseTag){
+				case IO_REPARSE_TAG_SYMLINK:
+					{
+						auto p = (char *)buf->SymbolicLinkReparseBuffer.PathBuffer + buf->SymbolicLinkReparseBuffer.SubstituteNameOffset;
+						auto begin = (const wchar_t *)p;
+						auto end = (const wchar_t *)(p + buf->SymbolicLinkReparseBuffer.SubstituteNameLength);
+						if (!!target_path){
+							target_path->assign(begin, end);
+							if (starts_with(*target_path, L"\\??\\"))
+								*target_path = target_path->substr(4);
+						}
+						if (is_symlink)
+							*is_symlink = true;
 					}
-					if (is_symlink)
-						*is_symlink = true;
-				}
-				break;
-			case IO_REPARSE_TAG_MOUNT_POINT:
-				{
-					auto p = (char *)buf->MountPointReparseBuffer.PathBuffer + buf->MountPointReparseBuffer.SubstituteNameOffset;
-					auto begin = (const wchar_t *)p;
-					auto end = (const wchar_t *)(p + buf->MountPointReparseBuffer.SubstituteNameLength);
-					if (!!target_path){
-						target_path->assign(begin, end);
-						if (starts_with(*target_path, L"\\??\\"))
-							*target_path = target_path->substr(4);
+					break;
+				case IO_REPARSE_TAG_MOUNT_POINT:
+					{
+						auto p = (char *)buf->MountPointReparseBuffer.PathBuffer + buf->MountPointReparseBuffer.SubstituteNameOffset;
+						auto begin = (const wchar_t *)p;
+						auto end = (const wchar_t *)(p + buf->MountPointReparseBuffer.SubstituteNameLength);
+						if (!!target_path){
+							target_path->assign(begin, end);
+							if (starts_with(*target_path, L"\\??\\"))
+								*target_path = target_path->substr(4);
+						}
+						if (is_symlink)
+							*is_symlink = false;
 					}
-					if (is_symlink)
-						*is_symlink = false;
-				}
-				break;
-			default:
-				if (unrecognized)
-					*unrecognized = buf->ReparseTag;
-				return 2;
+					break;
+				default:
+					if (unrecognized)
+						*unrecognized = buf->ReparseTag;
+					return 2;
+			}
+		}else{
+			if (error == ERROR_MORE_DATA){
+				size *= 2;
+				tempbuf.resize(size);
+				continue;
+			}
+			return 2;
 		}
+		break;
 	}
 	CloseHandle(h);
 	return 0;
