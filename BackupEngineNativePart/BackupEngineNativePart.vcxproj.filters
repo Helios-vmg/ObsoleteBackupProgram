@@ -149,5 +149,8 @@
     <ClCompile Include="lzma.cpp">
       <Filter>Source Files\compression</Filter>
     </ClCompile>
+    <ClCompile Include="crypto.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>

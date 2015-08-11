@@ -14,6 +14,12 @@
 #include <string>
 #include <exception>
 #include <cryptlib/sha.h>
+#include <cryptlib/files.h>
+#include <cryptlib/base64.h>
+#include <cryptlib/rsa.h>
+#include <cryptlib/oaep.h>
+#include <cryptlib/osrng.h>
+#include <cryptlib/cryptlib.h>
 #include <type_traits>
 #include <vector>
 #include <cstdint>
